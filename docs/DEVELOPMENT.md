@@ -136,7 +136,7 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 | Language · Type | Java · Gradle (Groovy) — 그래빗과 같음 |
 | JDK · Java | 21 |
 | Packaging | Jar |
-| Group · Artifact | [검토 필요] (예: `com.tuktaklab` · `crm`) |
+| Group · Artifact | [검토 필요] (예: `com.tuktaklab` · `keepsy`) |
 | Spring Boot | Initializr가 보여주는 안정판 (SNAPSHOT·M·RC 제외) |
 | Dependencies | Spring Web, Spring Security, Spring Data JPA, Validation, MySQL Driver, Flyway Migration |
 | 나중에 추가 | Java Mail Sender (P2 비밀번호 재설정), 사진 저장소 SDK (제공사가 정해지면) |
