@@ -78,12 +78,26 @@
 - Entity를 응답으로 바로 내보내지 않고 DTO로 바꾼다. 마스킹 같은 권한별 필드 차이는 DTO 변환에서 처리한다.
 - 다른 패키지(도메인)와는 아래 「도메인 연동」 방식으로만 주고받는다.
 - 값만으로 결과가 정해지는 규칙(예측 계산, 상태 분류, 우선순위, 귀속, 예약 가능 시간, 광고 문구·바이트 계산)은 별도 클래스로 떼어 단위 테스트한다 (`docs/ARCHITECTURE.md` 「4」).
-- Lombok: Entity에는 `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`만 쓴다. `@Data`·`@ToString`·`@EqualsAndHashCode`는 연관관계를 따라가 무한 루프나 의도치 않은 지연 로딩을 일으키므로 Entity에 쓰지 않는다. DTO는 `record`나 `@Getter`. IntelliJ에서는 annotation processing을 켠다.
+- Lombok: Entity에는 `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`만 쓴다. `@Setter`는 쓰지 않는다(값은 엔티티 메서드로만 바꾼다). `@Data`·`@ToString`·`@EqualsAndHashCode`는 연관관계를 따라가 무한 루프나 의도치 않은 지연 로딩을 일으키므로 Entity에 쓰지 않는다. DTO는 `record`나 `@Getter`. IntelliJ에서는 annotation processing을 켠다.
 - 같은 도메인 안의 연관관계는 기본 단방향 N:1, 지연 로딩. 다른 도메인의 엔티티는 객체로 매핑하지 않는다(「도메인 연동」). 목록 조회는 fetch join 등으로 N+1을 막는다 (NFR-01).
+  - `@ManyToOne`·`@OneToOne`에는 `fetch = FetchType.LAZY`를 명시한다 (기본값이 즉시 로딩이다).
+  - 양방향은 부모가 자식 컬렉션을 실제로 쓰는 곳에만 둔다. 외래 키를 가진 `@ManyToOne` 쪽이 주인이고, 부모의 `@OneToMany`에 `mappedBy`를 쓴다. 양쪽 값은 부모의 편의 메서드(예: `addService(...)`) 한 곳에서 함께 맞춘다.
+  - `cascade`·`orphanRemoval = true`는 부모와 함께 생기고 사라지는 자식 방향에만 건다. 다른 엔티티를 향한 cascade는 두지 않는다.
+  - `@ManyToMany` 대신 연결 엔티티와 `@ManyToOne` 두 개를 쓴다.
+- 의존성은 생성자 주입만 쓴다 (`private final` 필드 + `@RequiredArgsConstructor`). 필드 `@Autowired`나 `new XxxService()`로 의존 객체를 만들지 않는다.
+- 조회만 하는 Service 메서드는 `@Transactional(readOnly = true)`로 둔다.
+- 반복문 안에서 Repository를 호출하지 않는다. ID를 모아 `findAllById()` 등으로 한 번에 조회하고 Map으로 맞춘다.
 - 쿼리는 매개변수 바인딩으로만 쓴다. JPQL·네이티브 쿼리에 사용자 입력을 문자열로 이어 붙이지 않는다.
 - 예외는 공통 예외 하나와 오류 code 열거형으로 던지고, 전역 예외 처리 한 곳에서 `docs/CONTRACTS.md` 「2」 모양으로 바꾼다. 예외를 잡아서 무시하지 않는다.
 - 매장 설정이 아닌 고정 숫자(예: PIN 인증 유지 5분, 로그인 잠금 15분)는 상수 한 곳에 모은다.
 - 성급한 추상화를 만들지 않는다. 구현이 하나뿐인 인터페이스는 교체 계획이 문서에 있을 때만 둔다. 단, 「도메인 연동」의 Port는 예외로 둔다.
+
+### 로깅 [제안]
+
+- `System.out.println`·`printStackTrace()`를 쓰지 않고 SLF4J 로거(Lombok `@Slf4j`)를 쓴다. 값은 문자열 더하기 대신 `{}` 자리 표시자로 넘긴다 (예: `log.info("예약 완료 reservationId={}", id)`).
+- 레벨: 오류는 `error`, 예상 가능한 문제는 `warn`, 주요 업무 흐름은 `info`, 개발용 상세 값은 `debug`. 반복문 안에서 `info`를 대량으로 찍지 않는다. 패키지별 레벨은 `logging.level`로 조정한다.
+- 예외를 기록할 때는 예외 객체를 마지막 인자로 넘겨 원인을 남긴다 (예: `log.error("발송 실패 campaignId={}", id, e)`). 처리하지 못한 예외는 전역 예외 처리 한 곳에서 한 번만 기록한다.
+- 비밀번호·PIN·세션 쿠키·고객 연락처를 로그에 남기지 않는다. 요청 DTO나 엔티티를 통째로 찍지 않는다. 개인정보 접근 기록은 로그가 아니라 `access_log`에만 남긴다 (NFR-06).
 
 ### 도메인 연동 (2026-11-23 팀 결정)
 
