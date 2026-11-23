@@ -27,9 +27,9 @@ color: green
 | 파일 | 역할 |
 | --- | --- |
 | `README.md` | 문서 지도, 상태 표시, ID 체계, 미결 위치 |
-| `docs/ARCHITECTURE.md` | 기술 스택(확정/제안), 모듈, 데이터 관계, 인증·권한 구현, 외부 연동 경계 |
-| `docs/CONTRACTS.md` | 확정된 API 규칙, 오류 응답·공통 형식·enum·경로 규칙(제안), 계약 변경 절차 |
-| `docs/DEVELOPMENT.md` | Git 전략·코드 컨벤션·환경 변수·테스트 전략(제안) |
+| `docs/ARCHITECTURE.md` | 기술 스택(A14), 로컬 실행 방식, 백엔드 패키지·프론트 구조·화면 경로, 데이터 관계, 인증·권한 구현, 외부 연동 경계 |
+| `docs/CONTRACTS.md` | 확정된 API 규칙, 오류 응답·공통 형식·enum·기능 키·엔드포인트 목록(제안), 계약 변경 절차 |
+| `docs/DEVELOPMENT.md` | Git 전략·코드 컨벤션·환경 변수·골격 만들기·테스트 전략(제안) |
 
 ## 기준 (위가 우선)
 

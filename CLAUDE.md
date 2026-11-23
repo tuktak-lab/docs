@@ -25,7 +25,7 @@
 - 예측은 **고객 × 시술 카테고리**별, 메뉴 예측 속성(일반 / 주기 계산 제외 / 종료 신호) (A7, E5)
 - 캠페인은 시술 카테고리 하나, 같은 카테고리만 귀속 (E7)
 - 보관 기간 마지막 방문 후 3년(1~5년 설정), 접근 기록 2년 (D3, D2)
-- 기술 스택: 백엔드 Java 21·Gradle·Spring Boot(Security 세션·Data JPA)·Flyway, 프론트 React + Next.js(정적 빌드: SSR·동적 경로 없음), DB MySQL 8. 배포하지 않고 로컬에서 프론트·백엔드를 따로 실행 (A14, `docs/ARCHITECTURE.md` 「2」·「3」)
+- 기술 스택: 백엔드 Java 21·Gradle·Spring Boot(Security 세션·Data JPA·Bean Validation)·Flyway, 프론트 React + Next.js(정적 빌드: SSR·동적 경로 없음), DB MySQL 8. 배포하지 않고 로컬에서 프론트·백엔드를 따로 실행 (A14, `docs/ARCHITECTURE.md` 「2」·「3」)
 
 ## 미결과 충돌을 만났을 때
 

@@ -163,8 +163,8 @@ frontend/
 | `/campaigns/templates` | 템플릿 관리 | `CAMPAIGN_SEND` | FR-CMP-03 |
 | `/campaigns/reconfirm` | 동의 재확인 대상 | `CAMPAIGN_VIEW` | FR-CMP-13 |
 | `/virtual-phone` | 가상 휴대폰 | `CAMPAIGN_SEND` | FR-CMP-11·16 |
-| `/analytics` | 성과 분석 (매출·지표·예측 정확도) | `SALES_ANALYTICS` | FR-ANL-02·05~07 |
-| `/settings` | 매장 설정 (탭: 매장 정보·영업시간, 시술 메뉴, 휴무일, 예측 기준, 발송, 보관 기간, 스탭·PIN·기능 잠금) | `OWNER_PIN` | FR-SET-01~07, FR-ACC-03~05·09 |
+| `/analytics` | 성과 분석 (캠페인 전환 퍼널·연결 매출·대조군 비교, 매출·주기 내 재방문율·예측 정확도) | `SALES_ANALYTICS` (영역별 `CAMPAIGN_VIEW`) | FR-ANL-01·02·05~07·09 |
+| `/settings` | 매장 설정 (탭: 매장 정보·영업시간, 시술 메뉴, 휴무일, 예측 기준, 발송, 보관 기간, 스탭·PIN·기능 잠금) | `OWNER_PIN` (원장 PIN 재설정 FR-ACC-09는 원장 PIN 없이 매장 계정 비밀번호로, `docs/CONTRACTS.md` 「4」 `PUT /api/owner-pin`) | FR-SET-01~07, FR-ACC-03~05·09 |
 
 ## 5. 데이터
 

@@ -254,6 +254,7 @@
 | `GET /api/day-offs?from=&to=` | 매장·스탭 휴무일 (캘린더에서도 씀) | 근무자 | FR-SET-07 |
 | `POST /api/day-offs` · `DELETE /api/day-offs/{dayOffId}` | 휴무일 등록 (겹치는 예약이 있으면 응답에 목록) · 삭제 | `OWNER_PIN` | FR-SET-07 |
 | `GET` · `PUT /api/settings` | 이탈 신호 기간 상한, 귀속 기간, 일 발송 한도, 재발송 제한 기간, 가상 발송 실패 비율, 보관 기간 | `OWNER_PIN` | FR-SET-03·04·06 |
+
 ## 5. 계약 변경 절차
 
 1. **요구사항이 바뀌는 변경**은 결정체크리스트에서 결정한 뒤 명세서 → 이 문서 순으로 반영한다. 이 문서에서 먼저 바꾸지 않는다.
