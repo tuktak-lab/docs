@@ -154,6 +154,7 @@
 | `POST /api/password-reset` · `PUT /api/password-reset` | 재설정 메일 요청 · 새 비밀번호 설정 (P2) | 비로그인 | FR-ACC-06 |
 | `PUT /api/owner-pin` | 매장 계정 비밀번호를 다시 확인하고 원장 PIN 재설정 | 매장 세션 | FR-ACC-09 |
 | `GET /api/staff` | 활성 스탭 목록 (담당 스탭 선택용) | 근무자 | FR-RSV-01, FR-ACC-04 |
+| `GET /api/staff?includeInactive=true` | 스탭 관리 화면용 목록 (비활성 스탭 포함) | `OWNER_PIN` | FR-ACC-04, FR-SET-05 |
 | `POST /api/staff` · `PATCH /api/staff/{staffId}` | 스탭 등록 · 이름·"잠긴 기능 사용 허용"·정기 휴무 요일 수정 | `OWNER_PIN` | FR-ACC-03, FR-SET-07 |
 | `PUT /api/staff/{staffId}/pin` | 스탭 PIN 재설정 | `OWNER_PIN` | FR-ACC-03 |
 | `POST /api/staff/{staffId}/deactivate` | 비활성화 (남은 예약이 있으면 `conflict` + `details`에 예약 목록) | `OWNER_PIN` | FR-ACC-04 |
@@ -166,6 +167,7 @@
 | `GET /api/customers` | 목록·검색·필터 (20건) | `CUSTOMER_VIEW` | FR-CUS-02 |
 | `POST /api/customers` | 등록 (개인정보 동의 필수, 선택 동의 함께) | `CUSTOMER_WRITE` | FR-CUS-01 |
 | `GET /api/customers/{customerId}` | 상세: 기본 정보(마스킹), 주의사항, 노쇼 횟수, 예약 제한, 방문 요약, 취향 | `CUSTOMER_VIEW` | FR-CUS-03·04·05·11 |
+| `GET /api/customers/{customerId}/reservations` | 고객의 예약 목록 (고객 상세의 예약 영역, 최신순) | `RESERVATION` | FR-CUS-03 |
 | `GET /api/customers/{customerId}/predictions` | 카테고리별 예측 (방문 리듬 타임라인의 예측 기간 포함) | `INSIGHT` | FR-PRD-02·03, FR-CUS-03 |
 | `GET /api/customers/{customerId}/contact` | 연락처 전체 | `CONTACT_FULL` | 명세서 2장 |
 | `PATCH /api/customers/{customerId}` | 기본 정보 수정 | `CUSTOMER_EDIT` | 명세서 2장 |
@@ -250,7 +252,7 @@
 | `PUT /api/shop` | 매장 정보·요일별 영업시간·발신번호·수신 거부 번호 (밀리는 예약이 있으면 응답에 목록) | `OWNER_PIN` | FR-SET-01·07 |
 | `GET /api/service-menus` | 시술 메뉴 (예약 화면에서도 씀) | 근무자 | FR-SET-02 |
 | `POST /api/service-menus` · `PATCH /api/service-menus/{menuId}` | 메뉴 추가 · 수정 (주기·예측 속성을 바꾸면 예측 재계산) | `OWNER_PIN` | FR-SET-02, FR-VIS-05 |
-| `PUT /api/category-cycles` | 카테고리 기본 주기 | `OWNER_PIN` | FR-SET-02 |
+| `GET` · `PUT /api/category-cycles` | 카테고리 기본 주기 조회 · 수정 | `OWNER_PIN` | FR-SET-02 |
 | `GET /api/day-offs?from=&to=` | 매장·스탭 휴무일 (캘린더에서도 씀) | 근무자 | FR-SET-07 |
 | `POST /api/day-offs` · `DELETE /api/day-offs/{dayOffId}` | 휴무일 등록 (겹치는 예약이 있으면 응답에 목록) · 삭제 | `OWNER_PIN` | FR-SET-07 |
 | `GET` · `PUT /api/settings` | 이탈 신호 기간 상한, 귀속 기간, 일 발송 한도, 재발송 제한 기간, 가상 발송 실패 비율, 보관 기간 | `OWNER_PIN` | FR-SET-03·04·06 |
