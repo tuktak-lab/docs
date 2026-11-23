@@ -28,11 +28,11 @@
 | 3D | three.js 사용 가능. 요구사항에 3D 화면은 없음 | [확정] (선택 사용) | A14 |
 | 그 밖의 프론트 라이브러리 | 필요할 때 추가 (후보는 `docs/DEVELOPMENT.md` 「4」) | [확정] 방침 | A14 |
 | 예약 발송·결과 갱신 | Spring `@Scheduled` (별도 큐 없음) | [제안] | 기획서 11장, 명세서 6장 「가정」 |
-| 사진 저장 | S3 호환 오브젝트 스토리지, 비공개 저장 + 짧은 만료 서명 URL | [확정] (제공사는 미결) | 명세서 6장 「외부 연동」, NFR-07 |
+| 사진 저장 | 서버 로컬 비공개 디렉터리 + HMAC 서명 URL(만료 5분). 저장소 접근은 컴포넌트 하나 뒤에 두어 운영 시 S3 호환으로 교체 | [확정] 2026-11-23 변경 | 명세서 6장 「외부 연동」, NFR-07, F16 |
 | 전송 | 전 구간 HTTPS | [확정] | NFR-05 |
 | 로컬·테스트 DB | Docker Compose로 띄운 MySQL 8 (그래빗과 같은 방식). CI는 MySQL 서비스 컨테이너 | [제안] | — |
 | Node.js 버전 | 24 (`package.json` `engines`·`.nvmrc`로 고정, Keepsy #119) | [확정] 2026-11-23 | — |
-| 백엔드 포매터 | Spotless + google-java-format. `spotlessCheck`는 Gradle `check`에 포함되어 CI `./gradlew build`에서 함께 돈다 | [확정] | 결정체크리스트 F18 |
+| 백엔드 포매터 | Spotless + google-java-format AOSP 스타일(4칸). `spotlessCheck`는 Gradle `check`에 포함되어 CI `./gradlew build`에서 함께 돈다 | [확정] | 결정체크리스트 F18 |
 | 실행 환경 | 배포하지 않고 로컬에서 실행·시연. HTTPS(NFR-05)·백업(NFR-10)은 실제 운영을 전제로 한 설계로만 둠 | [확정] | A14 추가 결정 |
 
 ## 3. 시스템 구성
@@ -218,7 +218,7 @@ erDiagram
 | 기본키 | `BIGINT` 자동 증가 | [제안] |
 | enum 저장 | 문자열로 저장 (`@Enumerated(EnumType.STRING)`). 값 목록은 `docs/CONTRACTS.md` 「3」 | [제안] |
 | 시각 저장 | DB·JVM·JDBC 시간대를 Asia/Seoul로 고정하고 `DATETIME`·`DATE`로 저장 | [제안] NFR-12에서 파생 |
-| 로그인·PIN 실패 잠금 상태 | 실패 횟수·잠금 해제 시각을 `shop`에 둔다 (서버 재시작 뒤에도 유지). 횟수는 `횟수 = 횟수 + 1` UPDATE로 올린다. 비밀번호 재설정 토큰은 `password_reset_token` 표에 해시로 두고, 사용은 `사용 시각 IS NULL AND 만료 시각 > now` 조건부 UPDATE로 한 번만 성공시킨다 | [확정] F14 |
+| 로그인·PIN 실패 잠금 상태 | 실패 횟수·잠금 해제 시각을 `shop`에 둔다 (서버 재시작 뒤에도 유지). 로그인·원장 PIN 재설정의 비밀번호 재확인·PIN 입력은 매장 행을 `SELECT … FOR UPDATE`로 잠근 한 트랜잭션에서 잠금 확인 → 검증 → 횟수 갱신을 한다 (F11·F14). 비밀번호 재설정 토큰은 `password_reset_token` 표에 해시로 두고, 사용은 `사용 시각 IS NULL AND 만료 시각 > now` 조건부 UPDATE로 한 번만 성공시킨다 | [확정] F14 |
 | 스키마 관리 | Flyway migration 파일(`V{n}__{설명}.sql`)로 관리한다. 이미 적용된 파일은 고치지 않고 새 버전을 더한다. `ddl-auto`로 테이블을 만들지 않는다 | [확정] Flyway (A14) / [제안] 운영 규칙 |
 | migration 버전 번호 | 여러 사람이 동시에 만들어 번호가 겹치지 않도록 첫 스키마는 이슈별로 미리 정한다: V1 매장·스탭·휴무일·시술 메뉴(Keepsy #6), V2 고객·동의·취향 태그·상담 메모(#7), V3 예약·방문·시술 항목·결제·사진(#8), V4 예측·예측 스냅샷(#9), V5 템플릿·캠페인·캠페인 메시지(#10), V6 접근 로그·미매칭 검색어 로그(#11). 그 뒤 migration은 V7부터 `main`에 머지되는 순서로 번호를 붙이고, 머지 전에 `main`의 마지막 번호를 확인해 겹치면 올린다. 뒤 번호 테이블을 가리키는 외래 키(예: V3 `reservation_service`·`visit_service`의 귀속 발송 ID → V5 `campaign_message`)는 뒤 번호 파일에서 `ALTER TABLE`로 추가한다. 첫 스키마 PR은 V1→V6 순서로 머지한다. 순서가 어긋나 로컬 DB에서 Flyway 검증이 실패하면 로컬 DB를 다시 만든다(`docker compose down -v`, 로컬 데이터 삭제) | 2026-11-23 팀 결정 |
 
@@ -268,6 +268,10 @@ erDiagram
 - 4가 실패해도 3은 유지된다. 완료된 예약의 마감 카드(FR-PAY-04)에서 사진만 다시 올린다. 잠긴 기능이면 `pin_required` → PIN 입력 → 같은 요청을 다시 보낸다 (4장 API 호출 규칙).
 - 사진 저장소는 DB 트랜잭션 밖이다. 올릴 때는 저장소에 먼저 쓰고(키는 무작위) DB 행을 만든다. DB가 실패하면 저장소 객체를 지운다(실패하면 기록만 남김). 지울 때는 DB 행을 먼저 지우고 커밋 뒤에 저장소 객체를 지운다. 고아 객체가 생겨도 URL은 DB 행으로만 발급되므로 노출되지 않는다.
 
+### 방문 삭제 = 마감 되돌리기 [결정 F8]
+
+`DELETE /api/visits/{visitId}` 한 트랜잭션에서 방문 행 잠금(없으면 404) → 연결된 예약 모두 `CONFIRMED`·`visit_id` 비움 → 결제 취소 표시·`visit_id` 비움 → 시술·방문 메모·사진 행과 방문 삭제 → 예측 재계산. 사진 파일은 커밋 뒤 삭제. 고객 없는 방문은 `conflict`, CSV로 가져온 방문은 방문만 삭제. 결제가 있으면 `CUSTOMER_EDIT`과 `PAYMENT_EDIT`을 모두 검사한다.
+
 ### 기록에 남는 사람
 
 - 공용 기능의 작성자·처리자와 접근 로그: 현재 근무자 (FR-ACC-10).
@@ -282,7 +286,7 @@ erDiagram
 | --- | --- | --- |
 | 메시지 발송 | 발송 처리 코드를 한곳에 모아, 실제 발송으로 바꿀 때 나머지 기능은 바꾸지 않는다 | [확정] FR-CMP-17 (전환 자체는 P3이지만 이 구조 조건은 명세서에 적혀 있음) |
 | | 발송은 컴포넌트 하나(예: `MessageSender`)를 거치고, MVP 구현은 가상 발송기다. 가상 발송기는 몇 초 뒤 결과를 바꾼다: 번호 형식 오류는 실패, 설정한 비율만큼 무작위 실패, 나머지는 성공 (FR-CMP-10). 실패 비율 기본값은 0% (F17). 무작위 판정은 주입한 난수 생성기로 해 테스트에서 고정한다 | [제안] |
-| 사진 저장소 | 저장소 접근을 컴포넌트 하나에 모은다. 제공사가 정해지기 전에는 로컬 개발용 구현으로 대신한다 | [제안] 제공사는 미결 |
+| 사진 저장소 | 저장·삭제·서명 URL 발급을 컴포넌트 하나에 모은다. 구현은 로컬 비공개 디렉터리(`APP_STORAGE_DIR`)와 HMAC-SHA256 서명(`APP_STORAGE_SIGNING_KEY`, 사진 ID·매장 ID·만료). 파일 이름은 서버가 무작위로 만들고 경로가 기준 디렉터리 밖이면 거부 | [확정] F16 |
 | 이메일 (비밀번호 재설정) | P2 (FR-ACC-06). 발송 수단 미정 | [검토 필요] |
 
 ### 스케줄러 작업 [제안]
@@ -301,7 +305,8 @@ erDiagram
 | `DRAFT`·`SCHEDULED` → `SENDING` | 즉시 발송, 예약 시각이 된 스케줄러 | `UPDATE campaign SET status = 'SENDING' WHERE id = ? AND status IN ('DRAFT','SCHEDULED')`. 바뀐 행이 1이 아니면 `conflict`(409). 같은 트랜잭션에서 재검사(야간 · 한도 · 동의)와 고객별 `campaign_message`(`PENDING`, 대조군 행) 생성 |
 | `campaign_message` `PENDING` → `SENT`·`FAILED` | 가상 발송 결과 갱신 스케줄러 | 행마다 조건부 UPDATE (`status = 'PENDING'`일 때만) |
 | `SENDING` → `SENT` | 같은 스케줄러 | 남은 `PENDING`이 없을 때 조건부 UPDATE |
-| `DRAFT`·`SCHEDULED` → `CANCELED` | 취소 | 조건부 UPDATE |
+| `DRAFT`·`SCHEDULED` → `CANCELED` | 사용자 취소 (`USER_CANCELED`) | 조건부 UPDATE |
+| `SENDING` → `CANCELED` | 예약 발송 재검사에서 일 발송 한도 초과 (`DAILY_LIMIT_EXCEEDED`) | 같은 트랜잭션에서 발송 기록 없이 정상 커밋. 한도 검사·발송 기록 생성은 매장 행 잠금(`SELECT … FOR UPDATE`) 안에서 |
 
 - 두 번째 방어선: `campaign_message`에 (campaign_id, customer_id) 고유 제약.
 - 복구: `SENDING` 전환과 발송 기록 생성이 한 트랜잭션이라, 커밋 전에 프로세스가 끝나면 상태가 그대로 남는다. 커밋 뒤에 끝나면 `PENDING` 기록이 남고 재시작한 스케줄러가 이어서 처리한다. 메시지 큐는 두지 않는다 (명세서 6장 「가정」).
@@ -316,7 +321,7 @@ erDiagram
 - 목록 API는 모두 페이징 (개수는 C13)
 - 주요 조회 쿼리는 인덱스 사용 (`EXPLAIN`)
 - 목록 화면에 N+1 쿼리 없음
-- 캠페인 발송·CSV 일괄 등록·다운로드는 진행 상태 표시
+- 캠페인 발송·CSV 일괄 등록·다운로드는 진행 상태 표시 (CSV는 처리 중 표시 + 완료 결과 요약, F4)
 
 ## 9. 남은 결정
 
@@ -326,7 +331,7 @@ erDiagram
 | 패키지 기준 이름(group), 개발 저장소 이름 | 정함: `com.tuktaklab` (패키지 `com.tuktaklab.keepsy`), `tuktak-lab/Keepsy` | — |
 | Node.js 버전, 백엔드 포매터 | 정함: Node 24, Spotless + google-java-format (2절, F18) | — |
 | 귀속 발송 ID가 가리키는 테이블 (5절) | 정함: `campaign_message.id` (F15) | — |
-| 사진 저장소 제공사 | 미결 (기획서 13장, 명세서 6장). 로컬 MinIO 검토 중 (F16) | 사진 업로드 구현 전 (Keepsy #13) |
+| 사진 저장소 | 정함: 로컬 비공개 디렉터리 + HMAC 서명 URL (F16) | — |
 | 가상 발송기 무작위 실패 비율 | 정함: 기본 0% (F17) | — |
 
 ### 백엔드 이슈를 쓰며 찾은 빈칸 (2026-11-23)
@@ -339,10 +344,10 @@ erDiagram
 | 시술 마감 카드 저장(closing, `RESERVATION`) 안의 사진(`CUSTOMER_WRITE`)·동의 받기(`CONSENT`) 권한을 명세서 2장 "각 영역은 그 기능 설정을 따름"과 어떻게 맞출지 | 명세서 2장, FR-PAY-04 | #65 | 정함 F9 |
 | 로그인·PIN 실패 잠금 상태(5절 [제안])와 비밀번호 재설정 토큰을 저장할 속성이 명세서 5장에 없음 | FR-ACC-02·06·08 | #6, #15, #25 | 정함 F14 |
 | 캠페인 상태 enum 값 (CONTRACTS 3장) | FR-CMP-08·09 | #10, #89, #90, #96, #97 | 정함 F7 |
-| 결제 취소·방문 삭제 때 연결된 방문·결제·사진·예약 상태 처리 | FR-PAY-02, FR-VIS-03 | #69, #71 | 검토 중 F8 |
+| 결제 취소·방문 삭제 때 연결된 방문·결제·사진·예약 상태 처리 | FR-PAY-02, FR-VIS-03 | #69, #71 | 정함 F8 |
 | 처리 표시가 `customer_prediction`에 있어 재계산 때 지워지지 않게 할 방법 | FR-PRD-07 | #78 | 정함 F2 |
 | "이번 주"의 시작 요일 | FR-DSH-03, FR-ANL-06 | #79, #107 | 정함 F10 |
 | CONTRACTS 2장에 없는 오류 code: 가입 이메일 중복, 원장 PIN 재설정의 비밀번호 확인 실패 | FR-ACC-01·09 | #14, #19 | 정함 F11 |
 | 스탭 정기 휴무 요일을 바꿀 때 밀리는 예약 목록 (FR-SET-07은 요구, CONTRACTS는 `PATCH /api/staff/{staffId}`에 없음) | FR-SET-07 | #21 | 정함 F12 |
-| CONTRACTS 4장에 없는 API: 취향 태그 목록, CSV 일괄 등록 진행 상태 | FR-CUS-04·13, NFR-01 | #42, #52 | 태그 정함 F3 · CSV 검토 중 F4 |
+| CONTRACTS 4장에 없는 API: 취향 태그 목록, CSV 일괄 등록 진행 상태 | FR-CUS-04·13, NFR-01 | #42, #52 | 정함 F3 · F4 |
 | 캘린더 기간 조회에 페이징(CONTRACTS 1장)을 적용할지 | FR-RSV-02 | #58 | 정함 F13 |

@@ -42,7 +42,7 @@
 | --- | --- | --- | --- |
 | 매장 로그인 안 됨, 세션 만료 | `unauthorized` | 401 | FR-ACC-02 |
 | 매장 계정 이메일·비밀번호 틀림 (어느 쪽이 틀렸는지 말하지 않음) | `login_failed` | 401 | FR-ACC-02 |
-| 로그인 실패 잠금 중 | `login_locked` | 429 | FR-ACC-02, C1 |
+| 로그인 실패 잠금 중 (원장 PIN 재설정의 비밀번호 확인도 막힘) | `login_locked` | 429 | FR-ACC-02·09, C1, F11 |
 | 현재 근무자 없음 | `worker_required` | 403 | FR-ACC-10 |
 | PIN 틀림, "잠긴 기능 사용 허용"이 꺼진 스탭, 비활성 스탭 | `pin_invalid` | 400 | FR-ACC-04·08 |
 | PIN 입력 차단 중 | `pin_locked` | 429 | FR-ACC-08, C22 |
@@ -104,6 +104,7 @@
 | 발송 메시지 종류 | `AD` `UNSUBSCRIBE_NOTICE` `CONSENT_RECONFIRM` | 제안 (5장 campaign_message) |
 | 메시지 유형 | `SMS` `LMS` | 제안 (FR-CMP-05) |
 | 발송 상태 | `PENDING` `SENT` `FAILED` (대조군 행은 발송하지 않으므로 상태 없음) | 제안 (FR-CMP-10·18) |
+| 캠페인 취소 사유 | `USER_CANCELED`(사용자 취소) `DAILY_LIMIT_EXCEEDED`(예약 발송 시각에 일 발송 한도 초과) | 결정 F7 |
 | 캠페인 상태 | `DRAFT`(작성 중) `SCHEDULED`(예약 발송 대기) `SENDING`(발송 중) `SENT`(발송 완료) `CANCELED`(취소). 상태 전이는 `docs/ARCHITECTURE.md` 「7」 | 결정 F7 |
 
 ### 기능 키 (공용/PIN 설정 단위)
@@ -182,6 +183,7 @@
 | `POST /api/customers/{customerId}/consents` | 동의 받기 · 철회 (동의 방법, 철회 경로 `UNSUBSCRIBE` 포함) | `CONSENT` | FR-CUS-09, FR-CMP-11 |
 | `POST /api/consents/{consentId}/corrections` | 잘못 입력한 동의 정정 | `CUSTOMER_EDIT` | FR-CUS-09, E8 |
 | `POST /api/visits/{visitId}/photos` | 시술 사진 업로드 (multipart, 사진 동의 필요) | `CUSTOMER_WRITE` | FR-CUS-08 |
+| `GET /api/photos/{photoId}/file?expires=&signature=` | 사진 파일 (서명 URL. 서명·만료와 세션 매장을 확인, 다른 매장이면 404) | 서명 URL | NFR-07, F16 |
 | `GET /api/customers/{customerId}/messages` | 수신 이력 · 캠페인 연결 기록 | `CAMPAIGN_VIEW` | FR-CUS-03, FR-ANL-04 |
 | `GET /api/customers/{customerId}/payments` | 결제 금액 이력 | `SALES_ANALYTICS` | FR-ANL-04 |
 | `GET /api/customers/{customerId}/deletion-preview` · `DELETE /api/customers/{customerId}` | 삭제 전 확인(취소될 예약 건수) · 삭제(파기) | `OWNER_PIN` | FR-CUS-10 |
@@ -201,8 +203,8 @@
 | `POST /api/reservations/{reservationId}/cancel` · `/no-show` | 취소 · 노쇼 (노쇼는 시작 시각 뒤에만) | `RESERVATION` | FR-RSV-03 |
 | `POST /api/reservations/{reservationId}/complete` | 결제 없이 완료 처리 (실제 시술 확인, 고객 없는 예약은 불가) | `RESERVATION` | FR-VIS-01 |
 | `GET` · `POST /api/reservations/{reservationId}/closing` | 시술 마감 카드 채울 값 · 저장 (결제·방문·방문 메모·예약 완료 한 트랜잭션. 동의는 `consents`, 사진은 `photos` API로 따로) | `RESERVATION` | FR-PAY-01·04, FR-VIS-01·05, F1·F9 |
-| `PATCH /api/payments/{paymentId}` · `POST /api/payments/{paymentId}/cancel` | 결제 수정 · 취소 | `PAYMENT_EDIT` | FR-PAY-02 |
-| `PATCH` · `DELETE /api/visits/{visitId}` | 방문의 실제 시술·주기 계산 제외 수정 · 방문 삭제 (예측 재계산) | `CUSTOMER_EDIT` | FR-VIS-03·05 |
+| `PATCH /api/payments/{paymentId}` · `POST /api/payments/{paymentId}/cancel` | 결제 수정 · 취소 (취소해도 방문은 유지) | `PAYMENT_EDIT` | FR-PAY-02, F8 |
+| `PATCH` · `DELETE /api/visits/{visitId}` | 방문의 실제 시술·주기 계산 제외 수정 · 방문 삭제 = 마감 되돌리기 (연결된 예약 모두 확정으로, 결제 취소 표시, 시술·사진·메모 삭제, 예측 재계산. 취소할 결제가 있으면 `PAYMENT_EDIT`도 검사. 고객 없는 방문은 `conflict`) | `CUSTOMER_EDIT` | FR-VIS-03·05, F8 |
 
 **예측 · 인사이트 (PRD)**
 
@@ -219,11 +221,12 @@
 | `POST /api/message-templates` · `PATCH` · `DELETE /api/message-templates/{templateId}` | 템플릿 작성 · 수정 · 삭제 | `CAMPAIGN_SEND` | FR-CMP-03 |
 | `POST /api/campaigns/targets` | 대상 미리 계산 (카테고리, 조건 또는 인사이트에서 고른 행 → 대상 수, 제외 사유별 건수) | `CAMPAIGN_SEND` | FR-CMP-01·02 |
 | `POST /api/campaigns` | 캠페인 만들기 (카테고리, 대상, 템플릿, 대조군 비율) | `CAMPAIGN_SEND` | FR-CMP-01·18 |
-| `GET /api/campaigns` · `GET /api/campaigns/{campaignId}` | 캠페인 목록 · 상세(고객별 발송 결과) | `CAMPAIGN_VIEW` | FR-CMP-10 |
+| `GET /api/campaigns` · `GET /api/campaigns/{campaignId}` | 캠페인 목록 · 상세(고객별 발송 결과, 취소 사유) | `CAMPAIGN_VIEW` | FR-CMP-10 |
 | `GET /api/campaigns/{campaignId}/preview` | 고객별 치환 결과, 바이트 수, SMS/LMS, 발송·대조군 인원, 예상 비용 | `CAMPAIGN_SEND` | FR-CMP-05·18 |
 | `POST /api/campaigns/{campaignId}/review` | 검토 체크 (검토자·시각 기록) | `CAMPAIGN_SEND` | FR-CMP-06 |
 | `POST /api/campaigns/{campaignId}/send` | 즉시 발송 | `CAMPAIGN_SEND` | FR-CMP-07·08·12 |
 | `PUT /api/campaigns/{campaignId}/schedule` | 예약 발송 시각 지정 | `CAMPAIGN_SEND` | FR-CMP-09 |
+| `POST /api/campaigns/{campaignId}/cancel` | 작성 중·예약 발송 대기 캠페인 취소 (`USER_CANCELED`) | `CAMPAIGN_SEND` | F7 |
 | `GET /api/consent-reconfirm-targets` | 동의 재확인 대상 (2년 되기 30일 전부터) | `CAMPAIGN_VIEW` | FR-CMP-13 |
 | `GET /api/virtual-phone/messages?phone=` | 가상 수신함 (최신순) | `CAMPAIGN_SEND` | FR-CMP-16 |
 | `POST /api/virtual-phone/unsubscribe` | 가상 휴대폰의 [수신거부] | `CAMPAIGN_SEND` | FR-CMP-11·16 |

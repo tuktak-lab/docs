@@ -151,7 +151,7 @@
 | `MYSQL_DATABASE` · `MYSQL_USER` · `MYSQL_PASSWORD` | 로컬 MySQL 생성 + 백엔드 DB 접속 | MySQL 공식 이미지가 읽는 이름을 백엔드도 그대로 씀 |
 | `MYSQL_ROOT_PASSWORD` | 로컬 MySQL | 백엔드는 쓰지 않음 |
 | `MYSQL_HOST` · `MYSQL_PORT` | 백엔드 DB 접속 | 선택. 없으면 `localhost` · `3306` |
-| `APP_STORAGE_ENDPOINT` · `APP_STORAGE_BUCKET` · `APP_STORAGE_ACCESS_KEY` · `APP_STORAGE_SECRET_KEY` | 사진 저장소 | 제공사 미결. 정해지기 전에는 로컬 저장 구현 (`docs/ARCHITECTURE.md` 「7」) |
+| `APP_STORAGE_DIR` · `APP_STORAGE_SIGNING_KEY` | 사진 저장소 | 비공개 디렉터리 경로와 서명 URL용 HMAC 비밀키 (결정체크리스트 F16, `docs/ARCHITECTURE.md` 「7」). 디렉터리는 저장소에 커밋하지 않는다 |
 | `SPRING_MAIL_*` | 비밀번호 재설정 메일 | P2 (FR-ACC-06). 그때 추가 |
 
 세션 쿠키 Secure는 Spring 기본값(`false`)을 그대로 쓴다. 로컬은 http이고, HTTPS로 운영하게 되면 그때 켠다 (NFR-02·05).
