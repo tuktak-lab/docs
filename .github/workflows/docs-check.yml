@@ -1,0 +1,24 @@
+# 문서 검사: 필수 파일 · 상대 링크 · 표 열 수 · 요구사항 ID · YAML 형식 (scripts/check-docs.mjs).
+# 애플리케이션 코드가 없는 저장소라 build · test 단계는 두지 않는다.
+name: docs-check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install yaml parser
+        run: npm install --no-save --no-package-lock yaml@2.6.1
+      - name: Check docs
+        run: node scripts/check-docs.mjs

@@ -1,0 +1,37 @@
+name: Task
+description: 문서 · 설정 · 리팩터링 · 테스트 · 유지보수 작업
+title: "[Task] "
+labels: ["chore"]
+body:
+  - type: input
+    id: requirement
+    attributes:
+      label: 관련 요구사항 ID · 결정 항목
+      description: "문서 작업이면 근거가 된 결정 항목(예: E3, C17)을 적습니다."
+      placeholder: "예: FR-CMP-13, D1"
+    validations:
+      required: false
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 무엇을 하면 끝나는지 한두 줄로 적습니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: todo
+    attributes:
+      label: 작업 항목 · 완료 조건
+      placeholder: |
+        - [ ] ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 참고 문서
+    validations:
+      required: false

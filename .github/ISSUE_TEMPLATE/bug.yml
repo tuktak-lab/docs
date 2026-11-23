@@ -1,0 +1,49 @@
+name: Bug
+description: 요구사항과 다르게 동작하는 문제
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: input
+    id: requirement
+    attributes:
+      label: 관련 요구사항 ID
+      description: 어긋난 요구사항이 있으면 적습니다.
+      placeholder: "예: FR-PRD-04, NFR-04"
+    validations:
+      required: false
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 현상
+      placeholder: |
+        실제: ...
+        기대: ... (근거: 요구사항 ID 또는 결정 항목)
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 절차
+      description: 재현이 안 되면 언제 · 어느 화면에서 봤는지라도 적습니다.
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 환경 · 로그 · 스크린샷
+      description: 브라우저, 사용한 시드 데이터 등. 비밀 값과 실제 개인정보는 넣지 마세요 (모의 데이터만 사용).
+    validations:
+      required: false
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: 고친 뒤 확인 방법
+    validations:
+      required: false
