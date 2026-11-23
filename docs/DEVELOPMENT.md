@@ -77,6 +77,7 @@
 - Entity를 응답으로 바로 내보내지 않고 DTO로 바꾼다. 마스킹 같은 권한별 필드 차이는 DTO 변환에서 처리한다.
 - 다른 패키지의 Repository를 직접 부르지 않고 그 패키지의 Service를 부른다.
 - 값만으로 결과가 정해지는 규칙(예측 계산, 상태 분류, 우선순위, 귀속, 예약 가능 시간, 광고 문구·바이트 계산)은 별도 클래스로 떼어 단위 테스트한다 (`docs/ARCHITECTURE.md` 「4」).
+- Lombok: Entity에는 `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`만 쓴다. `@Data`·`@ToString`·`@EqualsAndHashCode`는 연관관계를 따라가 무한 루프나 의도치 않은 지연 로딩을 일으키므로 Entity에 쓰지 않는다. DTO는 `record`나 `@Getter`. IntelliJ에서는 annotation processing을 켠다.
 - 연관관계는 기본 단방향 N:1, 지연 로딩. 목록 조회는 fetch join 등으로 N+1을 막는다 (NFR-01).
 - 쿼리는 매개변수 바인딩으로만 쓴다. JPQL·네이티브 쿼리에 사용자 입력을 문자열로 이어 붙이지 않는다.
 - 예외는 공통 예외 하나와 오류 code 열거형으로 던지고, 전역 예외 처리 한 곳에서 `docs/CONTRACTS.md` 「2」 모양으로 바꾼다. 예외를 잡아서 무시하지 않는다.
@@ -141,7 +142,7 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 | Packaging | Jar |
 | Group · Artifact | `com.tuktaklab` · `keepsy` (기본 패키지 `com.tuktaklab.keepsy`, 개발 저장소 골격에서 정함) |
 | Spring Boot | Initializr가 보여주는 안정판 (SNAPSHOT·M·RC 제외) |
-| Dependencies | Spring Web, Spring Security, Spring Data JPA, Validation, MySQL Driver, Flyway Migration |
+| Dependencies | Spring Web, Spring Security, Spring Data JPA, Validation, MySQL Driver, Flyway Migration, Lombok |
 | 나중에 추가 | Java Mail Sender (P2 비밀번호 재설정), 사진 저장소 SDK (제공사가 정해지면) |
 
 설정 파일(`application.yaml`, `compose.yaml`, `.env.example`)과 의존성 추가는 IntelliJ에서 직접 만든다. 만드는 순서와 내용은 그 단계에서 따로 안내한다.
