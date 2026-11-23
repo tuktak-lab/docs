@@ -99,12 +99,14 @@
 | 스탭 상태 | `ACTIVE` `INACTIVE` | 제안 (FR-ACC-04) |
 | 예측 상태 | `SCHEDULED`(예정) `DUE`(주기 도래) `CHURN_SIGNAL`(이탈 신호) `LONG_ABSENT`(장기 미방문) `NO_PREDICTION`(예측 없음) | 제안 (FR-PRD-01·04) |
 | 처리 표시 | `CONTACTED` `ON_HOLD` `CLOSED` | 제안 (FR-PRD-07) |
+| 다음 액션 | `REVISIT` `CHECK_IN` `WIN_BACK`(템플릿 용도와 같은 값) `REQUEST_CONSENT`(다음 방문 시 동의 요청). 액션이 없으면 `null` | 결정 F19 (FR-PRD-06) |
 | 템플릿 용도 | `REVISIT`(재방문 안내) `CHECK_IN`(안부·혜택) `WIN_BACK`(재방문 혜택) `CONSENT_RECONFIRM`(동의 재확인) `ETC` | 제안 (FR-CMP-03) |
 | 캠페인 메시지 종류 | `AD`(광고) `INFO`(안내) | 제안 (FR-CMP-03) |
 | 발송 메시지 종류 | `AD` `UNSUBSCRIBE_NOTICE` `CONSENT_RECONFIRM` | 제안 (5장 campaign_message) |
 | 메시지 유형 | `SMS` `LMS` | 제안 (FR-CMP-05) |
 | 발송 상태 | `PENDING` `SENT` `FAILED` (대조군 행은 발송하지 않으므로 상태 없음) | 제안 (FR-CMP-10·18) |
 | 캠페인 취소 사유 | `USER_CANCELED`(사용자 취소) `DAILY_LIMIT_EXCEEDED`(예약 발송 시각에 일 발송 한도 초과) | 결정 F7 |
+| 캠페인 제외 사유 | `UNSUBSCRIBED`(수신 거부) `NO_CONSENT`(미동의·직접 철회) `RESEND_LIMIT`(재발송 제한 기간 안). 고객당 하나, 이 순서로 우선 | 확정 (2026-11-23, FR-CMP-02) |
 | 캠페인 상태 | `DRAFT`(작성 중) `SCHEDULED`(예약 발송 대기) `SENDING`(발송 중) `SENT`(발송 완료) `CANCELED`(취소). 상태 전이는 `docs/ARCHITECTURE.md` 「7」 | 결정 F7 |
 
 ### 기능 키 (공용/PIN 설정 단위)
@@ -210,7 +212,7 @@
 
 | 메서드 · 경로 | 하는 일 | 권한 | 요구사항 |
 | --- | --- | --- | --- |
-| `GET /api/insights?status=&category=` | 상태별 고객 × 카테고리 행, 추천 액션, 우선순위 정렬 | `INSIGHT` | FR-PRD-04·05·06·09 |
+| `GET /api/insights?status=&category=` | 상태별 고객 × 카테고리 행, 추천 액션(`nextAction`, 3장 「다음 액션」), 우선순위 정렬 | `INSIGHT` | FR-PRD-04·05·06·09 |
 | `PUT /api/customers/{customerId}/predictions/{category}/handling` | 처리 표시 (연락함 / 보류 / 관리 종료, P2) | `INSIGHT` | FR-PRD-07 |
 
 **캠페인 · 발송 · 가상 휴대폰 (CMP)**
@@ -219,7 +221,7 @@
 | --- | --- | --- | --- |
 | `GET /api/message-templates` | 템플릿 목록 | `CAMPAIGN_VIEW` | FR-CMP-03 |
 | `POST /api/message-templates` · `PATCH` · `DELETE /api/message-templates/{templateId}` | 템플릿 작성 · 수정 · 삭제 | `CAMPAIGN_SEND` | FR-CMP-03 |
-| `POST /api/campaigns/targets` | 대상 미리 계산 (카테고리, 조건 또는 인사이트에서 고른 행 → 대상 수, 제외 사유별 건수) | `CAMPAIGN_SEND` | FR-CMP-01·02 |
+| `POST /api/campaigns/targets` | 대상 미리 계산 (카테고리, 조건 또는 인사이트에서 고른 행 → `targetCount`: 제외 후 발송 대상 고객 수(대조군 분리 전), `excludedCounts`: 3장 「캠페인 제외 사유」 값마다 건수(0건 포함)) | `CAMPAIGN_SEND` | FR-CMP-01·02 |
 | `POST /api/campaigns` | 캠페인 만들기 (카테고리, 대상, 템플릿, 대조군 비율) | `CAMPAIGN_SEND` | FR-CMP-01·18 |
 | `GET /api/campaigns` · `GET /api/campaigns/{campaignId}` | 캠페인 목록 · 상세(고객별 발송 결과, 취소 사유) | `CAMPAIGN_VIEW` | FR-CMP-10 |
 | `GET /api/campaigns/{campaignId}/preview` | 고객별 치환 결과, 바이트 수, SMS/LMS, 발송·대조군 인원, 예상 비용 | `CAMPAIGN_SEND` | FR-CMP-05·18 |
