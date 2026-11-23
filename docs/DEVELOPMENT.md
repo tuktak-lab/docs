@@ -117,15 +117,17 @@
 - 값은 이슈·PR·댓글·채팅·터미널 출력에 붙이지 않는다. 확인은 "설정됨 / 미설정"까지만 한다 (NFR-09).
 - CI는 비밀 값 없이 통과해야 한다.
 
-Spring Boot는 환경 변수를 설정 이름으로 바로 읽는다 (예: `SPRING_DATASOURCE_URL` → `spring.datasource.url`). 그래서 DB·메일·쿠키는 Spring 표준 이름을 그대로 쓰고, 우리 앱만의 값에만 `APP_` 접두사를 붙인다.
+실제 값은 저장소 루트의 `.env` 하나에 둔다. `compose.yaml`은 같은 폴더의 `.env`를 자동으로 읽고, 백엔드는 `application.yaml`의 `spring.config.import: optional:file:../.env[.properties]`로 같은 파일을 읽어 `${MYSQL_USER}`처럼 쓴다 (그래빗과 같은 방식). 그래서 DB 값을 두 번 적지 않는다.
 
 | 변수 | 쓰는 곳 | 비고 |
 | --- | --- | --- |
-| `MYSQL_DATABASE` · `MYSQL_USER` · `MYSQL_PASSWORD` · `MYSQL_ROOT_PASSWORD` | `compose.yaml`의 로컬 MySQL | MySQL 공식 이미지가 읽는 이름 |
-| `SPRING_DATASOURCE_URL` · `SPRING_DATASOURCE_USERNAME` · `SPRING_DATASOURCE_PASSWORD` | 백엔드 DB 접속 | 로컬은 위 MySQL 값과 맞춘다 |
-| `SERVER_SERVLET_SESSION_COOKIE_SECURE` | 세션 쿠키 Secure | 로컬(http)은 `false`. HTTPS로 운영할 때 `true` (NFR-02·05) |
+| `MYSQL_DATABASE` · `MYSQL_USER` · `MYSQL_PASSWORD` | 로컬 MySQL 생성 + 백엔드 DB 접속 | MySQL 공식 이미지가 읽는 이름을 백엔드도 그대로 씀 |
+| `MYSQL_ROOT_PASSWORD` | 로컬 MySQL | 백엔드는 쓰지 않음 |
+| `MYSQL_HOST` · `MYSQL_PORT` | 백엔드 DB 접속 | 선택. 없으면 `localhost` · `3306` |
 | `APP_STORAGE_ENDPOINT` · `APP_STORAGE_BUCKET` · `APP_STORAGE_ACCESS_KEY` · `APP_STORAGE_SECRET_KEY` | 사진 저장소 | 제공사 미결. 정해지기 전에는 로컬 저장 구현 (`docs/ARCHITECTURE.md` 「7」) |
-| `SPRING_MAIL_HOST` 등 `SPRING_MAIL_*` | 비밀번호 재설정 메일 | P2 (FR-ACC-06). 그때 추가 |
+| `SPRING_MAIL_*` | 비밀번호 재설정 메일 | P2 (FR-ACC-06). 그때 추가 |
+
+세션 쿠키 Secure는 Spring 기본값(`false`)을 그대로 쓴다. 로컬은 http이고, HTTPS로 운영하게 되면 그때 켠다 (NFR-02·05).
 
 이름은 `[제안]`이다. 골격을 만들 때 `.env.example`에 이 표대로 적고, 바뀌면 이 표를 함께 고친다.
 
