@@ -15,7 +15,7 @@
 | 다른 매장 ID로 요청하면 404 | NFR-03 |
 | 연락처 마스킹(`010-****-1234`)은 서버 응답 단계에서 적용한다 | NFR-04, A4 |
 | 모든 입력은 서버에서 검증하고, 사용자 입력을 출력할 때 이스케이프한다 | NFR-08 |
-| 목록 API는 페이징한다. 고객 목록은 20건 | NFR-01, FR-CUS-02, C13 |
+| 목록 API는 페이징한다. 고객 목록은 20건. 기간 조회는 기간을 최대 7일로 제한하고 페이징하지 않는다 | NFR-01, FR-CUS-02, C13, F13 |
 | 매장 로그인 5회 연속 실패 시 15분 잠금. PIN은 매장 단위 5회 연속 실패 시 5분 차단 | FR-ACC-02·08, C1·C22 |
 | PIN 인증은 5분 무입력 또는 [잠금] 시 해제 | FR-ACC-08, C23 |
 | 예약 저장 시 서버가 겹침을 다시 검사하고, 동시에 같은 시간을 잡으면 하나만 저장한다 | FR-RSV-04, C7 |
@@ -46,12 +46,13 @@
 | 현재 근무자 없음 | `worker_required` | 403 | FR-ACC-10 |
 | PIN 틀림, "잠긴 기능 사용 허용"이 꺼진 스탭, 비활성 스탭 | `pin_invalid` | 400 | FR-ACC-04·08 |
 | PIN 입력 차단 중 | `pin_locked` | 429 | FR-ACC-08, C22 |
+| 원장 PIN 재설정에서 매장 계정 비밀번호 확인 실패 (로그인 세션은 유지) | `password_mismatch` | 400 | FR-ACC-09, F11 |
 | 잠긴 기능인데 PIN 인증이 없거나 만료됨 | `pin_required` | 403 | FR-ACC-08, NFR-04 |
 | 원장 PIN이 필요한 기능 (예약 제한 고객 예약 포함, `message`에 제한 사유. 고객 없는 예약을 제한 고객과 **연결**할 때는 안내만 하고 이 오류를 내지 않음) | `owner_pin_required` | 403 | 명세서 2장, FR-CUS-14, E3 |
 | 대상이 없거나 다른 매장 것 | `not_found` | 404 | NFR-03 |
 | 입력 오류 (필수 칸, 휴대폰 형식, 길이, 파일 형식·크기, 2,000바이트 초과 메시지) | `invalid` | 400 | NFR-08, FR-CUS-08, FR-CMP-05 |
 | CSRF 토큰 없음·틀림 | `csrf_invalid` | 403 | NFR-02 |
-| 매장 안 중복 (고객 휴대폰, 스탭 PIN) | `duplicate` | 409 | FR-CUS-01, FR-ACC-03 |
+| 중복 (매장 안의 고객 휴대폰·스탭 PIN, 전역의 가입 이메일) | `duplicate` | 409 | FR-CUS-01, FR-ACC-01·03, F11 |
 | 예약 시간 겹침, 영업시간 밖, 매장·스탭 휴무 | `reservation_conflict` | 409 | FR-RSV-04, FR-SET-07 |
 | 동의가 필요한 입력 (사진 동의 없는 사진, 건강 정보 동의 없는 건강 주의사항) | `consent_required` | 409 | FR-CUS-05·08 |
 | 캠페인 검토 체크 없음 | `review_required` | 409 | FR-CMP-06 |
@@ -103,7 +104,7 @@
 | 발송 메시지 종류 | `AD` `UNSUBSCRIBE_NOTICE` `CONSENT_RECONFIRM` | 제안 (5장 campaign_message) |
 | 메시지 유형 | `SMS` `LMS` | 제안 (FR-CMP-05) |
 | 발송 상태 | `PENDING` `SENT` `FAILED` (대조군 행은 발송하지 않으므로 상태 없음) | 제안 (FR-CMP-10·18) |
-| 캠페인 상태 | — | [검토 필요] 5장에 "상태"만 있고 값이 없음 |
+| 캠페인 상태 | `DRAFT`(작성 중) `SCHEDULED`(예약 발송 대기) `SENDING`(발송 중) `SENT`(발송 완료) `CANCELED`(취소). 상태 전이는 `docs/ARCHITECTURE.md` 「7」 | 결정 F7 |
 
 ### 기능 키 (공용/PIN 설정 단위)
 
@@ -155,7 +156,7 @@
 | `PUT /api/owner-pin` | 매장 계정 비밀번호를 다시 확인하고 원장 PIN 재설정 | 매장 세션 | FR-ACC-09 |
 | `GET /api/staff` | 활성 스탭 목록 (담당 스탭 선택용) | 근무자 | FR-RSV-01, FR-ACC-04 |
 | `GET /api/staff?includeInactive=true` | 스탭 관리 화면용 목록 (비활성 스탭 포함) | `OWNER_PIN` | FR-ACC-04, FR-SET-05 |
-| `POST /api/staff` · `PATCH /api/staff/{staffId}` | 스탭 등록 · 이름·"잠긴 기능 사용 허용"·정기 휴무 요일 수정 | `OWNER_PIN` | FR-ACC-03, FR-SET-07 |
+| `POST /api/staff` · `PATCH /api/staff/{staffId}` | 스탭 등록 · 이름·"잠긴 기능 사용 허용"·정기 휴무 요일 수정 (정기 휴무 요일 변경으로 밀리는 확정 예약이 있으면 응답에 목록, 자동 취소 없음) | `OWNER_PIN` | FR-ACC-03, FR-SET-07, F12 |
 | `PUT /api/staff/{staffId}/pin` | 스탭 PIN 재설정 | `OWNER_PIN` | FR-ACC-03 |
 | `POST /api/staff/{staffId}/deactivate` | 비활성화 (남은 예약이 있으면 `conflict` + `details`에 예약 목록) | `OWNER_PIN` | FR-ACC-04 |
 | `PUT /api/feature-locks` | 기능별 공용/PIN 설정 변경 | `OWNER_PIN` | FR-ACC-05 |
@@ -173,6 +174,7 @@
 | `PATCH /api/customers/{customerId}` | 기본 정보 수정 | `CUSTOMER_EDIT` | 명세서 2장 |
 | `PUT /api/customers/{customerId}/cautions` | 시술 주의사항 · 건강 주의사항(건강 정보 동의 필요) | `CUSTOMER_WRITE` | FR-CUS-05 |
 | `PUT /api/customers/{customerId}/preferences` | 취향 태그 · 자유 메모 | `CUSTOMER_WRITE` | FR-CUS-04 |
+| `GET /api/preference-tags?category=` | 매장에서 쓴 취향 태그 목록 (카테고리별, 중복 제거) | `CUSTOMER_VIEW` | FR-CUS-04, F3 |
 | `GET /api/customers/{customerId}/history` | 시술 히스토리북 (방문별 시술·담당 스탭·사진 서명 URL·메모, 결제 금액 제외) | `CUSTOMER_VIEW` | FR-CUS-07 |
 | `GET` · `POST /api/customers/{customerId}/consult-notes` | 상담 메모 조회 · 작성 | `CUSTOMER_VIEW` · `CUSTOMER_WRITE` | FR-CUS-06 |
 | `PATCH` · `DELETE /api/consult-notes/{noteId}` | 상담 메모 수정 · 삭제 | `CUSTOMER_EDIT` | FR-CUS-06, C5 |
@@ -191,14 +193,14 @@
 
 | 메서드 · 경로 | 하는 일 | 권한 | 요구사항 |
 | --- | --- | --- | --- |
-| `GET /api/reservations?from=&to=` | 기간 예약 (주간 캘린더, 일간 보기) | `RESERVATION` | FR-RSV-02·05 |
+| `GET /api/reservations?from=&to=` | 기간 예약 (주간 캘린더, 일간 보기). 기간은 최대 7일, 페이징 없음 (7일 초과는 `invalid`) | `RESERVATION` | FR-RSV-02·05 |
 | `GET /api/reservations/available-times?staffId=&date=&minutes=` | 예약 가능한 시작 시각 (30분 단위) | `RESERVATION` | FR-RSV-04 |
 | `POST /api/reservations` · `PATCH /api/reservations/{reservationId}` | 예약 등록 · 수정 (겹침이면 `reservation_conflict`, 예약 제한 고객이면 `owner_pin_required`) | `RESERVATION` | FR-RSV-01·04, FR-CUS-14 |
 | `GET /api/reservations/{reservationId}` | 예약 상세 (주의사항 포함) | `RESERVATION` | FR-CUS-05, FR-DSH-01 |
 | `PUT /api/reservations/{reservationId}/customer` | 고객 없는 예약에 고객 연결 | `RESERVATION` | FR-DSH-01, FR-VIS-04 |
 | `POST /api/reservations/{reservationId}/cancel` · `/no-show` | 취소 · 노쇼 (노쇼는 시작 시각 뒤에만) | `RESERVATION` | FR-RSV-03 |
 | `POST /api/reservations/{reservationId}/complete` | 결제 없이 완료 처리 (실제 시술 확인, 고객 없는 예약은 불가) | `RESERVATION` | FR-VIS-01 |
-| `GET` · `POST /api/reservations/{reservationId}/closing` | 시술 마감 카드 채울 값 · 저장 (결제·방문·예약 완료 한 번에) | `RESERVATION` | FR-PAY-01·04, FR-VIS-01·05 |
+| `GET` · `POST /api/reservations/{reservationId}/closing` | 시술 마감 카드 채울 값 · 저장 (결제·방문·방문 메모·예약 완료 한 트랜잭션. 동의는 `consents`, 사진은 `photos` API로 따로) | `RESERVATION` | FR-PAY-01·04, FR-VIS-01·05, F1·F9 |
 | `PATCH /api/payments/{paymentId}` · `POST /api/payments/{paymentId}/cancel` | 결제 수정 · 취소 | `PAYMENT_EDIT` | FR-PAY-02 |
 | `PATCH` · `DELETE /api/visits/{visitId}` | 방문의 실제 시술·주기 계산 제외 수정 · 방문 삭제 (예측 재계산) | `CUSTOMER_EDIT` | FR-VIS-03·05 |
 
