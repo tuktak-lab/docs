@@ -107,6 +107,7 @@ compose.yaml    로컬 MySQL 8
 | `common` | NFR | 보안 설정, 권한 검사, 오류 응답, 접근 로그, 시간대, 정적 화면 경로 설정 |
 
 - 계층은 Controller → Service → Repository (`docs/DEVELOPMENT.md` 「4」).
+- 패키지 사이는 ID 참조와 Port로만 연결하고, 화면용 도메인 횡단 조회는 조회 전용 Repository에서 DTO Projection으로 한다 (`docs/DEVELOPMENT.md` 「4」 「도메인 연동」, 2026-11-23 팀 결정).
 - 외부 호출 없이 값만으로 결과가 정해지는 규칙은 Service에서 떼어 단위 테스트한다: 예측 계산(FR-PRD-01), 상태 분류(FR-PRD-04), 우선순위(FR-PRD-09), 귀속(FR-ANL-03·FR-VIS-04), 예약 가능 시간(FR-RSV-04), 광고 문구 삽입·바이트 계산(FR-CMP-04·05), 야간 제한(FR-CMP-07).
 - `PAY`를 `visit`에 둔 이유: 결제·방문 생성·예약 완료가 시술 마감 카드 저장 한 번으로 함께 처리된다 (FR-PAY-04, FR-VIS-01). 패키지를 나누면 한 트랜잭션이 두 패키지에 걸친다.
 
@@ -202,7 +203,7 @@ erDiagram
     customer ||--o{ campaign_message : ""
 ```
 
-주요 관계만 그렸다. `shop`과의 관계는 모든 업무 테이블에 있고(5장), 작성·처리 스탭(상담 메모, 동의, 캠페인 검토자)과 `payment.customer_id`, `access_log`·`search_miss_log`는 생략했다.
+주요 관계만 그렸다. `shop`과의 관계는 모든 업무 테이블에 있고(5장), 작성·처리 스탭(상담 메모, 동의, 캠페인 검토자)과 `payment.customer_id`, `access_log`·`search_miss_log`는 생략했다. 그림의 관계는 DB 외래 키 기준이다. 서로 다른 패키지(4장) 사이의 관계는 JPA에서 객체로 매핑하지 않고 ID로 참조한다 (`docs/DEVELOPMENT.md` 「4」 「도메인 연동」).
 
 ### 구현 메모
 
