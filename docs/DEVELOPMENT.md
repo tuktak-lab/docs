@@ -155,14 +155,15 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 
 ### 실행 명령
 
-골격을 만든 뒤 실제로 돌려 보고 확인된 명령만 이 표에 적는다. 아래는 이 도구들의 표준 명령이고, 확인 전이다.
+골격을 만든 뒤 실제로 돌려 보고 확인된 명령만 "확인됨"으로 적는다. "확인 전"은 이 도구들의 표준 명령이다.
 
-| 할 일 | 명령 (확인 전) |
-| --- | --- |
-| 로컬 MySQL 띄우기 | `docker compose up -d` |
-| 백엔드 실행 · 테스트 · 빌드 | `./gradlew bootRun` · `./gradlew test` · `./gradlew build` (`backend/`에서) |
-| 프론트 개발 서버 · 린트 · 빌드 | `npm run dev` · `npm run lint` · `npm run build` (`frontend/`에서) |
-| 시드 데이터 적재 | [검토 필요] (C17 구성) |
+| 할 일 | 명령 | 상태 |
+| --- | --- | --- |
+| 로컬 MySQL 띄우기 | `docker compose up -d` (저장소 루트에서, `.env` 필요) | 확인됨 (2026-11-23, MySQL 8.4) |
+| 백엔드 실행 | `./gradlew bootRun` (`backend/`에서) | 확인됨 (2026-11-23, Git Bash. 8080에서 Spring Security 기본 로그인 화면) |
+| 백엔드 테스트 · 빌드 | `./gradlew test` · `./gradlew build` (`backend/`에서, 로컬 MySQL이 떠 있어야 함) | 확인됨 (2026-11-23, Git Bash. `./gradlew build`는 CI `backend` job(GitHub Actions ubuntu, MySQL 8.4 서비스 컨테이너)에서도 통과, Keepsy #110) |
+| 프론트 개발 서버 · 린트 · 빌드 | `npm run dev` · `npm run lint` · `npm run build` (`frontend/`에서) | 확인 전 |
+| 시드 데이터 적재 | [검토 필요] (C17 구성) | — |
 
 로컬에서 여는 순서: ① MySQL 띄우기 → ② 백엔드 실행(8080) → ③ 프론트 개발 서버 실행(3000) → 브라우저에서 `http://localhost:3000`.
 
