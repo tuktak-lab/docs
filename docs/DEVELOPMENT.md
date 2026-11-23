@@ -1,14 +1,14 @@
 # 개발 가이드
 
 > 작성일: 2026-11-23 · 상태: 초안 · 기준 문서: [요구사항 명세서](../요구사항명세서.md), [기획서](../기획서.md), [결정 체크리스트](../결정체크리스트.md)
-> **개발 저장소는 아직 없다.** 이 문서의 Git 전략·컨벤션·도구는 대부분 **[제안]**이고, 요구사항에서 나온 규칙에만 **[확정]**과 근거 ID를 붙였다. 팀이 정하면 상태를 바꾼다.
+> **개발 저장소: [tuktak-lab/Keepsy](https://github.com/tuktak-lab/Keepsy)** (2026-11-23 생성). 이 문서의 Git 전략·컨벤션·도구는 대부분 **[제안]**이고, 요구사항에서 나온 규칙에만 **[확정]**과 근거 ID를 붙였다. 팀이 정하면 상태를 바꾼다.
 
 ## 1. 저장소
 
 | 저장소 | 역할 | 상태 |
 | --- | --- | --- |
 | `tuktak-lab/docs` (이 저장소) | 기획·결정·설계 문서. 애플리케이션 코드를 두지 않는다 | 현재 운영 방식 |
-| 개발 저장소 | 저장소 하나에 `backend/`(Spring Boot)와 `frontend/`(Next.js)를 함께 두고, 실행은 따로 한다. 배포하지 않고 로컬에서만 연다 (A14, `docs/ARCHITECTURE.md` 「3」) | [제안] 이름·생성 시점은 [검토 필요] |
+| `tuktak-lab/Keepsy` (개발 저장소) | 저장소 하나에 `backend/`(Spring Boot)와 `frontend/`(Next.js)를 함께 두고, 실행은 따로 한다. 배포하지 않고 로컬에서만 연다 (A14, `docs/ARCHITECTURE.md` 「3」). 로컬에서는 이 저장소와 같은 상위 폴더에 클론해 `../docs`로 문서를 읽는다 | 생성됨 (2026-11-23) |
 
 ## 2. Git 전략
 
@@ -50,8 +50,11 @@
 
 - 이슈 템플릿: Feature · Bug · Task (`.github/ISSUE_TEMPLATE/`). Feature는 요구사항 ID와 우선순위가 필수다.
 - 작업 단위: 요구사항 ID 하나 또는 밀접한 몇 개. 「상세 / 수용 기준」 열을 완료 조건으로 옮긴다.
-- 라벨: 종류(`feature` · `bug` · `chore`), 영역(`area:acc` … 명세서 ID 영역 코드), 우선순위(`priority:p1~p3`, 명세서 우선순위). 정의는 `.github/labels.yml`.
-- 마일스톤: 기획서 12장 로드맵을 따른다 — "MVP 1차 — 기록과 예측", "MVP 2차 — 발송과 성과", "시연·검증".
+- 라벨: 종류(`feature` · `bug` · `chore`) + 영역(`area:acc` … 명세서 ID 영역 코드). 정의는 개발 저장소 `.github/labels.yml`.
+- 우선순위 라벨(`priority:p1~p3`)은 지금 붙이지 않는다. 대부분 구현할 예정이라 구분이 필요 없다 (2026-11-23 팀 결정). 명세서 우선순위는 Feature 본문의 「우선순위」 칸에 그대로 적는다.
+- 마일스톤은 지금 쓰지 않는다. 시연·검증 단계(기획서 12장)에서 필요해지면 그때 만든다 (2026-11-23 팀 결정).
+- 담당은 이슈 assignee로 정한다. 영역(백엔드 패키지, `docs/ARCHITECTURE.md` 「4」) 단위로 나눠, 사람이 늘면 담당자가 없는 영역부터 맡는다.
+- 백엔드 이슈는 개발 저장소 Issues #1~#108에 있다 (2026-11-23, CONTRACTS 4장 기준). 프론트 이슈는 데모가 `frontend/`에 올라온 뒤 만든다.
 
 ## 4. 코드 컨벤션
 
@@ -136,7 +139,7 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 | Language · Type | Java · Gradle (Groovy) — 그래빗과 같음 |
 | JDK · Java | 21 |
 | Packaging | Jar |
-| Group · Artifact | [검토 필요] (예: `com.tuktaklab` · `keepsy`) |
+| Group · Artifact | `com.tuktaklab` · `keepsy` (기본 패키지 `com.tuktaklab.keepsy`, 개발 저장소 골격에서 정함) |
 | Spring Boot | Initializr가 보여주는 안정판 (SNAPSHOT·M·RC 제외) |
 | Dependencies | Spring Web, Spring Security, Spring Data JPA, Validation, MySQL Driver, Flyway Migration |
 | 나중에 추가 | Java Mail Sender (P2 비밀번호 재설정), 사진 저장소 SDK (제공사가 정해지면) |
