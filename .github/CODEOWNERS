@@ -1,3 +1,4 @@
 # 모든 파일의 리뷰 담당. PR이 열리면 자동으로 리뷰 요청이 간다.
 # 담당자를 바꾸거나 경로별로 나누면 이 파일을 고친다 (사람 계정만 넣는다).
-* @tjddnjs0316
+# main에 반영할 수 있는 사람도 이 두 명이다 (main 브랜치 보호의 push 제한, .claude/rules/git-workflow.md).
+* @tjddnjs0316 @wol20670

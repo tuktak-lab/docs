@@ -2,7 +2,7 @@
 
 고객의 취향·사진·메모를 "잘 간직한다"는 뜻의 뷰티샵 CRM, Keepsy의 문서 저장소입니다 (뚝딱랩). 직원 2명 이상 뷰티샵(네일·속눈썹·왁싱·반영구)의 고객 정보를 한 화면에 모으고, 고객별 방문 주기로 다음 방문 기간을 예측해 검토를 거친 메시지 발송과 성과 추적까지 잇는 CRM 웹 서비스입니다.
 
-- 현재 단계: 문서 기획. 애플리케이션 코드는 이 저장소에 두지 않고, 구현은 별도 개발 저장소를 만들어 진행합니다 (아직 만들지 않음).
+- 현재 단계: 구현 시작. 애플리케이션 코드는 이 저장소에 두지 않고, 개발 저장소 [tuktak-lab/Keepsy](https://github.com/tuktak-lab/Keepsy)에서 구현합니다. 구현 작업은 그 저장소의 Issues로 관리합니다.
 - 범위: 모의 데이터로 개발·시연까지. 실제 매장 운영(파일럿)과 실제 문자 발송은 하지 않고, 배포 없이 로컬에서 실행합니다 (결정체크리스트 「프로젝트 범위」, A6, A14).
 
 ## 문서 지도
@@ -48,6 +48,7 @@
 ## 협업
 
 - 이슈·PR 템플릿, 라벨, 리뷰 담당(CODEOWNERS): [.github/](./.github/)
+- `main`에 반영(push·머지)할 수 있는 사람은 tjddnjs0316 · wol20670입니다. 다른 사람은 PR을 엽니다 ([.claude/rules/git-workflow.md](./.claude/rules/git-workflow.md)).
 - CodeRabbit은 자동 리뷰를 꺼 두었습니다. 필요할 때 PR 댓글에 `@coderabbitai review`를 적어 부릅니다 ([.coderabbit.yaml](./.coderabbit.yaml)).
 - 문서 검사: `node scripts/check-docs.mjs` (필수 파일, 상대 링크, 표 열 수, 요구사항 ID, YAML). PR과 `main` push에서 GitHub Actions가 같은 검사를 돌립니다.
 - Claude Code로 작업할 때의 원칙: [CLAUDE.md](./CLAUDE.md)
