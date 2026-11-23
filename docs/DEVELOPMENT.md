@@ -77,6 +77,7 @@
 - Entity를 응답으로 바로 내보내지 않고 DTO로 바꾼다. 마스킹 같은 권한별 필드 차이는 DTO 변환에서 처리한다.
 - 다른 패키지의 Repository를 직접 부르지 않고 그 패키지의 Service를 부른다.
 - 값만으로 결과가 정해지는 규칙(예측 계산, 상태 분류, 우선순위, 귀속, 예약 가능 시간, 광고 문구·바이트 계산)은 별도 클래스로 떼어 단위 테스트한다 (`docs/ARCHITECTURE.md` 「4」).
+- Lombok: Entity에는 `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`만 쓴다. `@Data`·`@ToString`·`@EqualsAndHashCode`는 연관관계를 따라가 무한 루프나 의도치 않은 지연 로딩을 일으키므로 Entity에 쓰지 않는다. DTO는 `record`나 `@Getter`. IntelliJ에서는 annotation processing을 켠다.
 - 연관관계는 기본 단방향 N:1, 지연 로딩. 목록 조회는 fetch join 등으로 N+1을 막는다 (NFR-01).
 - 쿼리는 매개변수 바인딩으로만 쓴다. JPQL·네이티브 쿼리에 사용자 입력을 문자열로 이어 붙이지 않는다.
 - 예외는 공통 예외 하나와 오류 code 열거형으로 던지고, 전역 예외 처리 한 곳에서 `docs/CONTRACTS.md` 「2」 모양으로 바꾼다. 예외를 잡아서 무시하지 않는다.
@@ -116,15 +117,17 @@
 - 값은 이슈·PR·댓글·채팅·터미널 출력에 붙이지 않는다. 확인은 "설정됨 / 미설정"까지만 한다 (NFR-09).
 - CI는 비밀 값 없이 통과해야 한다.
 
-Spring Boot는 환경 변수를 설정 이름으로 바로 읽는다 (예: `SPRING_DATASOURCE_URL` → `spring.datasource.url`). 그래서 DB·메일·쿠키는 Spring 표준 이름을 그대로 쓰고, 우리 앱만의 값에만 `APP_` 접두사를 붙인다.
+실제 값은 저장소 루트의 `.env` 하나에 둔다. `compose.yaml`은 같은 폴더의 `.env`를 자동으로 읽고, 백엔드는 `application.yaml`의 `spring.config.import: optional:file:../.env[.properties]`로 같은 파일을 읽어 `${MYSQL_USER}`처럼 쓴다 (그래빗과 같은 방식). 그래서 DB 값을 두 번 적지 않는다.
 
 | 변수 | 쓰는 곳 | 비고 |
 | --- | --- | --- |
-| `MYSQL_DATABASE` · `MYSQL_USER` · `MYSQL_PASSWORD` · `MYSQL_ROOT_PASSWORD` | `compose.yaml`의 로컬 MySQL | MySQL 공식 이미지가 읽는 이름 |
-| `SPRING_DATASOURCE_URL` · `SPRING_DATASOURCE_USERNAME` · `SPRING_DATASOURCE_PASSWORD` | 백엔드 DB 접속 | 로컬은 위 MySQL 값과 맞춘다 |
-| `SERVER_SERVLET_SESSION_COOKIE_SECURE` | 세션 쿠키 Secure | 로컬(http)은 `false`. HTTPS로 운영할 때 `true` (NFR-02·05) |
+| `MYSQL_DATABASE` · `MYSQL_USER` · `MYSQL_PASSWORD` | 로컬 MySQL 생성 + 백엔드 DB 접속 | MySQL 공식 이미지가 읽는 이름을 백엔드도 그대로 씀 |
+| `MYSQL_ROOT_PASSWORD` | 로컬 MySQL | 백엔드는 쓰지 않음 |
+| `MYSQL_HOST` · `MYSQL_PORT` | 백엔드 DB 접속 | 선택. 없으면 `localhost` · `3306` |
 | `APP_STORAGE_ENDPOINT` · `APP_STORAGE_BUCKET` · `APP_STORAGE_ACCESS_KEY` · `APP_STORAGE_SECRET_KEY` | 사진 저장소 | 제공사 미결. 정해지기 전에는 로컬 저장 구현 (`docs/ARCHITECTURE.md` 「7」) |
-| `SPRING_MAIL_HOST` 등 `SPRING_MAIL_*` | 비밀번호 재설정 메일 | P2 (FR-ACC-06). 그때 추가 |
+| `SPRING_MAIL_*` | 비밀번호 재설정 메일 | P2 (FR-ACC-06). 그때 추가 |
+
+세션 쿠키 Secure는 Spring 기본값(`false`)을 그대로 쓴다. 로컬은 http이고, HTTPS로 운영하게 되면 그때 켠다 (NFR-02·05).
 
 이름은 `[제안]`이다. 골격을 만들 때 `.env.example`에 이 표대로 적고, 바뀌면 이 표를 함께 고친다.
 
@@ -141,7 +144,7 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 | Packaging | Jar |
 | Group · Artifact | `com.tuktaklab` · `keepsy` (기본 패키지 `com.tuktaklab.keepsy`, 개발 저장소 골격에서 정함) |
 | Spring Boot | Initializr가 보여주는 안정판 (SNAPSHOT·M·RC 제외) |
-| Dependencies | Spring Web, Spring Security, Spring Data JPA, Validation, MySQL Driver, Flyway Migration |
+| Dependencies | Spring Web, Spring Security, Spring Data JPA, Validation, MySQL Driver, Flyway Migration, Lombok |
 | 나중에 추가 | Java Mail Sender (P2 비밀번호 재설정), 사진 저장소 SDK (제공사가 정해지면) |
 
 설정 파일(`application.yaml`, `compose.yaml`, `.env.example`)과 의존성 추가는 IntelliJ에서 직접 만든다. 만드는 순서와 내용은 그 단계에서 따로 안내한다.
@@ -152,14 +155,15 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 
 ### 실행 명령
 
-골격을 만든 뒤 실제로 돌려 보고 확인된 명령만 이 표에 적는다. 아래는 이 도구들의 표준 명령이고, 확인 전이다.
+골격을 만든 뒤 실제로 돌려 보고 확인된 명령만 "확인됨"으로 적는다. "확인 전"은 이 도구들의 표준 명령이다.
 
-| 할 일 | 명령 (확인 전) |
-| --- | --- |
-| 로컬 MySQL 띄우기 | `docker compose up -d` |
-| 백엔드 실행 · 테스트 · 빌드 | `./gradlew bootRun` · `./gradlew test` · `./gradlew build` (`backend/`에서) |
-| 프론트 개발 서버 · 린트 · 빌드 | `npm run dev` · `npm run lint` · `npm run build` (`frontend/`에서) |
-| 시드 데이터 적재 | [검토 필요] (C17 구성) |
+| 할 일 | 명령 | 상태 |
+| --- | --- | --- |
+| 로컬 MySQL 띄우기 | `docker compose up -d` (저장소 루트에서, `.env` 필요) | 확인됨 (2026-11-23, MySQL 8.4) |
+| 백엔드 실행 | `./gradlew bootRun` (`backend/`에서) | 확인됨 (2026-11-23, Git Bash. 8080에서 Spring Security 기본 로그인 화면) |
+| 백엔드 테스트 · 빌드 | `./gradlew test` · `./gradlew build` (`backend/`에서, 로컬 MySQL이 떠 있어야 함) | 확인됨 (2026-11-23, Git Bash. `./gradlew build`는 CI `backend` job(GitHub Actions ubuntu, MySQL 8.4 서비스 컨테이너)에서도 통과, Keepsy #110) |
+| 프론트 개발 서버 · 린트 · 빌드 | `npm run dev` · `npm run lint` · `npm run build` (`frontend/`에서) | 확인 전 |
+| 시드 데이터 적재 | [검토 필요] (C17 구성) | — |
 
 로컬에서 여는 순서: ① MySQL 띄우기 → ② 백엔드 실행(8080) → ③ 프론트 개발 서버 실행(3000) → 브라우저에서 `http://localhost:3000`.
 
