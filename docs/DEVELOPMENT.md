@@ -189,6 +189,7 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 | 로컬 MySQL 띄우기 | `docker compose up -d` (저장소 루트에서, `.env` 필요) | 확인됨 (2026-11-23, MySQL 8.4) |
 | 백엔드 실행 | `./gradlew bootRun` (`backend/`에서) | 확인됨 (2026-11-23, Git Bash. 8080에서 Spring Security 기본 로그인 화면) |
 | 백엔드 테스트 · 빌드 | `./gradlew test` · `./gradlew build` (`backend/`에서, 로컬 MySQL이 떠 있어야 함) | 확인됨 (2026-11-23, Git Bash. `./gradlew build`는 CI `backend` job(GitHub Actions ubuntu, MySQL 8.4 서비스 컨테이너)에서도 통과, Keepsy #110) |
+| 백엔드 포매팅 | `./gradlew spotlessApply` (`backend/`에서, 커밋 전). 검사(`spotlessCheck`)는 `./gradlew build`에 포함 | 확인됨 (2026-11-23, Git Bash, Keepsy #150) |
 | 프론트 개발 서버 · 린트 · 빌드 | `npm run dev` · `npm run lint` · `npm run build` (`frontend/`에서) | 확인 전 |
 | 시드 데이터 적재 | [검토 필요] (C17 구성) | — |
 
