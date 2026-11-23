@@ -73,16 +73,43 @@
 
 ### 구조 [제안]
 
-- **Controller → Service → Repository.** Controller는 요청 검증(Bean Validation)·권한 검사·응답 DTO 변환만 한다. 업무 규칙과 트랜잭션은 Service에 둔다.
+- **Controller → Service → Repository.** Controller는 요청 검증(Bean Validation)·권한 검사·응답 DTO 변환만 한다. 트랜잭션은 Service에 두고, 기능 하나가 Service 메서드 하나에서 끝나게 한다.
+- 규칙의 위치: 엔티티의 상태를 바꾸는 규칙(예: 예약 완료·취소·노쇼, 캠페인 상태 전이)은 엔티티 메서드에 두고, 규칙을 어기면 엔티티가 예외를 던진다. Service는 "조회 → 엔티티에 일 시키기 → 결과 반환" 흐름만 맡는다. 값만으로 결과가 정해지는 계산 규칙은 아래처럼 별도 클래스에 둔다.
 - Entity를 응답으로 바로 내보내지 않고 DTO로 바꾼다. 마스킹 같은 권한별 필드 차이는 DTO 변환에서 처리한다.
-- 다른 패키지의 Repository를 직접 부르지 않고 그 패키지의 Service를 부른다.
+- 다른 패키지(도메인)와는 아래 「도메인 연동」 방식으로만 주고받는다.
 - 값만으로 결과가 정해지는 규칙(예측 계산, 상태 분류, 우선순위, 귀속, 예약 가능 시간, 광고 문구·바이트 계산)은 별도 클래스로 떼어 단위 테스트한다 (`docs/ARCHITECTURE.md` 「4」).
-- Lombok: Entity에는 `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`만 쓴다. `@Data`·`@ToString`·`@EqualsAndHashCode`는 연관관계를 따라가 무한 루프나 의도치 않은 지연 로딩을 일으키므로 Entity에 쓰지 않는다. DTO는 `record`나 `@Getter`. IntelliJ에서는 annotation processing을 켠다.
-- 연관관계는 기본 단방향 N:1, 지연 로딩. 목록 조회는 fetch join 등으로 N+1을 막는다 (NFR-01).
+- Lombok: Entity에는 `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`만 쓴다. `@Setter`는 쓰지 않는다(값은 엔티티 메서드로만 바꾼다). `@Data`·`@ToString`·`@EqualsAndHashCode`는 연관관계를 따라가 무한 루프나 의도치 않은 지연 로딩을 일으키므로 Entity에 쓰지 않는다. DTO는 `record`나 `@Getter`. IntelliJ에서는 annotation processing을 켠다.
+- 같은 도메인 안의 연관관계는 기본 단방향 N:1, 지연 로딩. 다른 도메인의 엔티티는 객체로 매핑하지 않는다(「도메인 연동」). 목록 조회는 fetch join 등으로 N+1을 막는다 (NFR-01).
+  - `@ManyToOne`·`@OneToOne`에는 `fetch = FetchType.LAZY`를 명시한다 (기본값이 즉시 로딩이다).
+  - 양방향은 부모가 자식 컬렉션을 실제로 쓰는 곳에만 둔다. 외래 키를 가진 `@ManyToOne` 쪽이 주인이고, 부모의 `@OneToMany`에 `mappedBy`를 쓴다. 양쪽 값은 부모의 편의 메서드(예: `addService(...)`) 한 곳에서 함께 맞춘다.
+  - `cascade`·`orphanRemoval = true`는 부모와 함께 생기고 사라지는 자식 방향에만 건다. 다른 엔티티를 향한 cascade는 두지 않는다.
+  - `@ManyToMany` 대신 연결 엔티티와 `@ManyToOne` 두 개를 쓴다.
+- 의존성은 생성자 주입만 쓴다 (`private final` 필드 + `@RequiredArgsConstructor`). 필드 `@Autowired`나 `new XxxService()`로 의존 객체를 만들지 않는다.
+- 조회만 하는 Service 메서드는 `@Transactional(readOnly = true)`로 둔다.
+- 반복문 안에서 Repository를 호출하지 않는다. ID를 모아 `findAllById()` 등으로 한 번에 조회하고 Map으로 맞춘다.
 - 쿼리는 매개변수 바인딩으로만 쓴다. JPQL·네이티브 쿼리에 사용자 입력을 문자열로 이어 붙이지 않는다.
 - 예외는 공통 예외 하나와 오류 code 열거형으로 던지고, 전역 예외 처리 한 곳에서 `docs/CONTRACTS.md` 「2」 모양으로 바꾼다. 예외를 잡아서 무시하지 않는다.
 - 매장 설정이 아닌 고정 숫자(예: PIN 인증 유지 5분, 로그인 잠금 15분)는 상수 한 곳에 모은다.
-- 성급한 추상화를 만들지 않는다. 구현이 하나뿐인 인터페이스는 교체 계획이 문서에 있을 때만 둔다.
+- 성급한 추상화를 만들지 않는다. 구현이 하나뿐인 인터페이스는 교체 계획이 문서에 있을 때만 둔다. 단, 「도메인 연동」의 Port는 예외로 둔다.
+
+### 로깅 [제안]
+
+- `System.out.println`·`printStackTrace()`를 쓰지 않고 SLF4J 로거(Lombok `@Slf4j`)를 쓴다. 값은 문자열 더하기 대신 `{}` 자리 표시자로 넘긴다 (예: `log.info("예약 완료 reservationId={}", id)`).
+- 레벨: 오류는 `error`, 예상 가능한 문제는 `warn`, 주요 업무 흐름은 `info`, 개발용 상세 값은 `debug`. 반복문 안에서 `info`를 대량으로 찍지 않는다. 패키지별 레벨은 `logging.level`로 조정한다.
+- 예외를 기록할 때는 예외 객체를 마지막 인자로 넘겨 원인을 남긴다 (예: `log.error("발송 실패 campaignId={}", id, e)`). 처리하지 못한 예외는 전역 예외 처리 한 곳에서 한 번만 기록한다.
+- 비밀번호·PIN·세션 쿠키·고객 연락처를 로그에 남기지 않는다. 요청 DTO나 엔티티를 통째로 찍지 않는다. 개인정보 접근 기록은 로그가 아니라 `access_log`에만 남긴다 (NFR-06).
+
+### 도메인 연동 (2026-11-23 팀 결정)
+
+도메인은 백엔드 패키지(`docs/ARCHITECTURE.md` 「4」)다. 강사 코드 점검표의 「도메인 주도 개발」·「도메인 간 연동」 항목(D-3, I-1~4·8~10)을 따른다.
+
+- 다른 도메인의 엔티티는 객체가 아니라 ID로 참조한다 (예: `Reservation`의 `Long customerId`). DB 외래 키는 명세서 5장대로 둔다.
+- 다른 도메인의 엔티티·Repository를 import하지 않는다.
+- 다른 도메인의 값이 내 로직에 필요하면, 값을 쓰는 쪽 도메인의 `port` 패키지에 인터페이스를 둔다 (예: `reservation.port.CustomerReader`). 이름과 메서드는 "내가 무엇이 필요한가"로 짓고, 반환 타입은 상대 도메인의 타입이 아니라 내 도메인의 record다.
+- Adapter는 상대 도메인이 공개한 조회 Service(예: `CustomerQueryService`)와 그 응답 DTO만 호출해 내 record로 바꾼다. 목록용으로 여러 ID를 한 번에 조회하는 메서드를 둔다 (N+1 방지).
+- 다른 도메인의 상태를 바꿔야 하면 그 도메인이 공개한 Service 메서드를 Port로 호출한다 (예: 시술 마감 카드 저장 때 예약 완료 처리, FR-PAY-04). 시술 마감 카드는 결제·방문 생성·예약 완료를 한 트랜잭션으로 묶는다 (`docs/ARCHITECTURE.md` 「4」, 점검표 D-7의 의식적 예외).
+- 화면에 보여 줄 도메인 횡단 조회(대시보드, 통합 검색, 성과 분석 등)는 조회 전용 Repository(`query` 패키지)에서 DTO Projection(JPQL `select new`)으로 필요한 컬럼만 가져온다. 메모리에서 거르거나 정렬하지 않는다.
+- Projection으로 조회한 DTO로 상태를 바꾸거나 규칙을 판단하지 않는다. 상태 변경은 엔티티를 Repository로 불러와 엔티티 메서드로 한다.
 
 ### 프론트 [제안]
 
