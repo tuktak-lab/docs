@@ -712,6 +712,33 @@
 
 구현을 시작할 때 이 소절에 채운다. 다른 영역 소절은 건드리지 않는다.
 
+**`GET /api/dashboard/today`** 오늘 예약 · 마감 안 된 예약 · 이번 주 예약 요약 (FR-DSH-01 · 03 · 05). 기능 키 `DASHBOARD_SEARCH`. "오늘" · "지금" · "이번 주"는 Asia/Seoul 기준이고 (NFR-12), 이번 주는 오늘이 속한 주의 월요일부터 일요일까지다 (F10). 페이징 없음.
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `today` | object[] | 시작 시각이 오늘인 예약, 시작 시각 순. 취소 · 노쇼도 포함하고 화면이 `status`로 거른다 (FR-DSH-01) |
+| `unclosed` | object[] | 마감 안 된 예약: 시작 시각이 지금보다 이른 확정(`CONFIRMED`) 예약 전부, 시작 시각 순(오래된 것 먼저). 고객 없는 예약도 넣는다 (FR-DSH-05, FR-RSV-01, E4). `today`와 겹칠 수 있다 |
+| `week` | object[] | 이번 주 요일별 예약 건수, 월요일부터 7개 (FR-DSH-03, F10) |
+
+| 예약 필드 (`today` · `unclosed`) | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 예약 ID. `unclosed`에서 누르면 이 ID로 시술 마감 카드(`GET /api/reservations/{reservationId}/closing`)를 연다 (E4) |
+| `status` | string | 예약 상태(3절) |
+| `startAt` | string | 시작 시각(3절 시각 형식) |
+| `minutes` | number | 소요 시간(분) |
+| `staff` | object | 담당 스탭 `{ "id": number, "name": string }` |
+| `consultFirst` | boolean | [상담 후 진행] (A13) |
+| `channel` | string | 예약 경로(3절) |
+| `customer` | object \| null | `{ "id": number, "name": string \| null, "hasCaution": boolean }`. 누르면 고객 상세로 간다. null이면 고객 없는 예약이라 화면은 예약 경로와 예정 시술로 표시하고, 누르면 예약 상세로 간다 (E3, FR-DSH-01). `hasCaution`은 시술 · 건강 주의사항 중 하나라도 있으면 true (주의 아이콘, FR-CUS-05). 삭제된 고객이면 `name`이 null (C12). 연락처는 넣지 않는다 (NFR-04) |
+| `services` | object[] | 예정 시술 `{ "serviceMenuId": number, "name": string }`, 등록 순 |
+
+| 요일 필드 (`week`) | 타입 | 설명 |
+| --- | --- | --- |
+| `date` | string | 날짜(3절) |
+| `counts` | object | 시작 시각이 그 날인 예약을 예약 상태(3절)마다 센 건수, 0건 포함: `{ "CONFIRMED": number, "COMPLETED": number, "CANCELED": number, "NO_SHOW": number }`. 어떤 상태를 합쳐 "예약 건수"로 보일지는 화면이 고른다 |
+
+- 다른 매장 예약은 나오지 않는다 (NFR-03)
+
 **`GET /api/search/customers`** 상단 검색창의 고객 결과 (FR-SCH-04). `CUSTOMER_VIEW`. 기능 검색 자체는 `DASHBOARD_SEARCH`지만 고객 결과는 "고객 조회" 설정을 따른다 (명세서 2장). "고객 조회"가 PIN으로 잠겨 있으면 `pin_required` 403이고, 화면은 고객 결과를 자물쇠로 표시했다가 PIN 인증 뒤 다시 요청한다 (FR-SCH-05). 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
