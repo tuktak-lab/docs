@@ -96,7 +96,7 @@ compose.yaml    로컬 MySQL 8
 
 | 패키지 (예) | 영역 코드 | 담는 것 |
 | --- | --- | --- |
-| `account` | ACC | 매장 가입·로그인, 스탭, PIN 인증, 근무자 전환, 기능별 공용/PIN 설정 |
+| `account` | ACC · SET 일부 | 매장 가입·로그인, 스탭, PIN 인증, 근무자 전환, 기능별 공용/PIN 설정. `shop` 테이블을 다루는 매장 정보·영업시간, 발송·보관 설정, 카테고리 기본 주기도 여기 둔다 (F21) |
 | `customer` | CUS | 고객, 동의 이력, 취향 태그, 상담 메모, 사진, CSV 일괄 등록, 삭제(파기) |
 | `reservation` | RSV | 예약, 예정 시술, 예약 가능 시간 계산, 캘린더 |
 | `visit` | VIS · PAY | 방문, 실제 시술, 결제, 시술 마감 카드 |
@@ -105,7 +105,7 @@ compose.yaml    로컬 MySQL 8
 | `analytics` | ANL | 전환 퍼널, 귀속 계산, 연결 매출, 매장 기본 지표, 예측 정확도, 대조군 비교 |
 | `dashboard` | DSH | 대시보드 조회 조합 |
 | `search` | SCH | 고객 통합 검색, 미매칭 검색어 (기능 키워드 사전은 프론트 정적 파일) |
-| `settings` | SET | 매장 정보, 시술 메뉴, 휴무일, 발송·보관 설정 |
+| `settings` | SET | 시술 메뉴, 휴무일 (`shop` 테이블 칸은 `account`, F21) |
 | `common` | NFR | 보안 설정, 권한 검사, 오류 응답, 접근 로그, 시간대, 정적 화면 경로 설정 |
 
 - 계층은 Controller → Service → Repository (`docs/DEVELOPMENT.md` 「4」).
