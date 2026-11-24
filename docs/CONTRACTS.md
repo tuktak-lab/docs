@@ -420,6 +420,15 @@
 - 다른 매장 · 없는 스탭이면 `not_found` 404
 - 비활성 스탭은 근무자 전환 · PIN 인증을 할 수 없고 `GET /api/staff`(담당 스탭 선택)에서 빠진다. 지금 어느 세션의 현재 근무자이면 다음 요청부터 `worker_required` 403, PIN 인증 스탭이면 `pin_required` 403(원장 PIN 기능은 `owner_pin_required`) (F34)
 
+**`PUT /api/feature-locks`** 기능별 공용/PIN 설정 변경 (FR-ACC-05, A3). `OWNER_PIN`. 성공하면 `204`. 바꾼 값은 다음 요청부터 바로 권한 검사에 쓰인다 (1절). 지금 값은 `GET /api/session`의 `features`로 본다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `features` | object | 예 | 기능 키(3절) → `PUBLIC` 또는 `PIN`. **보낸 키만 바꾼다** (F34). `GET /api/session`의 `features`를 고쳐 통째로 보내도 된다 |
+
+- 고정 키(`DASHBOARD_SEARCH` · `CONSENT` · `OWNER_PIN`)는 3절의 고정 값과 같으면 그대로 두고, 다르면 `invalid` 400 (E8, F34)
+- 모르는 키, 토글 가능한 키에 `PUBLIC` · `PIN` 외의 값(`OWNER_PIN` 포함), 빈 `features`면 `invalid` 400
+
 ### 고객 (CUS)
 
 **`POST /api/customers`** 고객 등록 (FR-CUS-01). `CUSTOMER_WRITE`. 성공하면 `201`. 처리 스탭은 현재 근무자다 (FR-ACC-10).
