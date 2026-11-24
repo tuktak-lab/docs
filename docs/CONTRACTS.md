@@ -615,6 +615,17 @@
 - 두 API 모두 다른 매장 · 삭제된 고객이면 `not_found` 404
 - 목록 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
+**`PATCH /api/consult-notes/{noteId}`** 상담 메모 수정 · **`DELETE /api/consult-notes/{noteId}`** 삭제 (FR-CUS-06, C5). `CUSTOMER_EDIT` (기본 PIN, 토글 가능). 둘 다 성공하면 `204`.
+
+| 요청 필드 (`PATCH`) | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `content` | string | 예 | 작성과 같다 (1~2,000자) |
+
+- 수정은 내용만 바꾸고, 작성 스탭 · 작성 시각은 처음 값 그대로다
+- `DELETE`는 본문 없음
+- 다른 매장 · 없는 메모면 `not_found` 404
+- 수정 · 삭제는 그 메모의 고객에 대한 수정 · 삭제로 접근 로그에 남긴다. 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자 (NFR-06, ARCHITECTURE 6장 「기록에 남는 사람」)
+
 **`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
 
 | 응답 필드 | 타입 | 설명 |
