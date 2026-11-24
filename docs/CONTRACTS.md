@@ -814,6 +814,20 @@
 - `period`가 없거나 값이 틀리면, `CUSTOM`인데 `from` · `to`가 없거나 날짜가 아니거나 `from` > `to`이면 `invalid` 400
 - 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
 
+**`GET /api/analytics/prediction-accuracy`** 예측 정확도 (FR-ANL-07). `SALES_ANALYTICS`. 평가 대상과 산식은 결정 F29: 예측 종료일이 기간 안이고 오늘(Asia/Seoul)보다 이전인 예측 스냅샷(FR-PRD-08)만 평가하고, 삭제된 고객의 스냅샷도 넣는다 (FR-CUS-10). 카테고리로 나누지 않는다. 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9).
+
+쿼리는 `GET /api/analytics/summary`와 같다 (`period`, `CUSTOM`이면 `from` · `to`).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `from` · `to` | string | 계산에 쓴 기간(3절 날짜, 둘 다 포함) |
+| `evaluatedCount` | number | 평가한 스냅샷 수. 적중률의 분모 |
+| `hitCount` | number | 그중 적중(다음 방문이 예측 기간 안) 수. 끝났는데 다음 방문이 없는 스냅샷은 빗나감이라 여기에 들지 않는다. 적중률은 `hitCount / evaluatedCount`로 화면이 계산하고, `evaluatedCount`가 0이면 적중률을 보이지 않는다 |
+| `averageErrorDays` | number \| null | 평균 오차(일): 실제 다음 방문일이 있는 스냅샷만으로 `\|실제 방문일 − 예측 중앙일\|`의 평균, 소수 첫째 자리 반올림. 중앙일은 시작 · 종료일의 정확한 가운데(반일 가능). 계산할 스냅샷이 없으면 null |
+
+- 쿼리 오류는 `GET /api/analytics/summary`와 같이 `invalid` 400
+- 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
+
 **`GET /api/dashboard/today`** 오늘 예약 · 마감 안 된 예약 · 이번 주 예약 요약 (FR-DSH-01 · 03 · 05). 기능 키 `DASHBOARD_SEARCH`. "오늘" · "지금" · "이번 주"는 Asia/Seoul 기준이고 (NFR-12), 이번 주는 오늘이 속한 주의 월요일부터 일요일까지다 (F10). 페이징 없음.
 
 | 응답 필드 | 타입 | 설명 |
