@@ -488,6 +488,22 @@
 
 ### 시술 마감 · 결제 (PAY)
 
+**`GET /api/reservations/{reservationId}/closing`** 시술 마감 카드 채울 값 (FR-PAY-01 · 04, FR-VIS-05). 기능 키 `RESERVATION`. 확정 · 완료 예약만 연다.
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `reservationId` | number | 예약 ID |
+| `status` | string | `CONFIRMED` 또는 `COMPLETED`. `COMPLETED`면 실제 시술은 읽기 전용이고 결제 · 사진 · 메모만 더한다 (E4) |
+| `servicesConfirmRequired` | boolean | 확정 상태의 [상담 후 진행] 예약이면 true. 저장할 때 `services`를 보내야 한다 (A13) |
+| `visitId` | number \| null | 완료된 예약의 방문 ID. 사진은 이 ID로 올린다 (F9) |
+| `customer` | object \| null | `{ "id": number, "name": string \| null }`. null이면 확정 상태에선 고객 연결(`PUT /api/reservations/{reservationId}/customer`) 또는 `noCustomer` 마감이 먼저 필요하고, 완료 상태에선 고객 없음으로 마감한 방문이다 (E3). 연락처는 넣지 않는다 (NFR-04) |
+| `services` | object[] | 실제 시술 `{ "serviceMenuId": number, "name": string, "category": string, "price": number, "predictionAttribute": string, "staff": { "id": number, "name": string }, "cycleExcluded": boolean }`. 확정 예약이면 예정 시술을 예약 담당 스탭 · `cycleExcluded: false`로 채우고, 완료 예약이면 이 예약으로 기록된 방문의 실제 시술이다 (A13). `price`는 지금 메뉴 가격(원), `predictionAttribute`는 3절 「메뉴 예측 속성」(`NORMAL` 메뉴에 주기 계산 제외를 체크하면 FR-VIS-05 안내를 띄운다) |
+| `photoAllowed` | boolean | 사진 동의 현재 상태(최신 행). 고객이 없으면 false (FR-CUS-08) |
+| `consentsToRequest` | string[] | 동의 받기 대상. `PHOTO` `MARKETING` `NIGHT_AD` `HEALTH` 중 현재 동의 상태가 아닌 항목(3절 순서). 고객이 없으면 빈 배열 (E3) |
+
+- 결제 수단은 3절 「결제 수단」 값을 그대로 쓴다 (응답에 넣지 않는다)
+- 취소 · 노쇼 예약이면 `conflict` 409, 다른 매장 · 없는 예약이면 `not_found` 404
+
 **`POST /api/reservations/{reservationId}/closing`** 시술 마감 카드 저장 (FR-PAY-01 · 04). 기능 키 `RESERVATION`. 결제 · 방문 생성 · 방문 메모 · 예약 완료를 한 트랜잭션으로 처리한다. 완료된 예약이면 같은 방문에 결제 · 메모만 더한다 (E4). 사진(`POST /api/visits/{visitId}/photos`)과 동의 받기는 따로 저장한다 (F9).
 
 | 요청 필드 | 타입 | 필수 | 규칙 |
