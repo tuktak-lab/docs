@@ -520,6 +520,16 @@
 
 - 모든 방문이 주기 계산 제외인 카테고리도 행이 있고 `status`는 `NO_PREDICTION`, 예측 칸은 null, `basisVisitCount`는 0이다 (FR-PRD-01 ①)
 
+**`GET /api/customers/{customerId}/contact`** 연락처 전체 (명세서 2장 「고객 연락처 전체 보기」, A4). `CONTACT_FULL` (기본 PIN, 토글 가능). 다른 응답은 모두 마스킹한 번호를 주고, 전체 번호는 이 API로만 준다 (NFR-04).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `phone` | string | 전체 휴대폰 번호 `010-0000-0000` |
+
+- PIN으로 잠겨 있는데 PIN 인증이 없거나 만료됐으면 `pin_required` 403이고 번호를 주지 않는다. 공용으로 바꾸면 바로 PIN 없이 된다 (FR-ACC-05)
+- 다른 매장 · 삭제된 고객이면 `not_found` 404
+- 조회는 접근 로그에 남긴다. 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자로 기록한다 (NFR-06, ARCHITECTURE 6장 「기록에 남는 사람」)
+
 **`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
 
 | 응답 필드 | 타입 | 설명 |
