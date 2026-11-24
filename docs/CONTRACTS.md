@@ -712,6 +712,23 @@
 
 구현을 시작할 때 이 소절에 채운다. 다른 영역 소절은 건드리지 않는다.
 
+**`GET /api/search/customers`** 상단 검색창의 고객 결과 (FR-SCH-04). `CUSTOMER_VIEW`. 기능 검색 자체는 `DASHBOARD_SEARCH`지만 고객 결과는 "고객 조회" 설정을 따른다 (명세서 2장). "고객 조회"가 PIN으로 잠겨 있으면 `pin_required` 403이고, 화면은 고객 결과를 자물쇠로 표시했다가 PIN 인증 뒤 다시 요청한다 (FR-SCH-05). 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `q` | string | 예 | 앞뒤 공백을 뺀 값이 숫자 4자리면 휴대폰 뒷자리 일치, 그 밖에는 이름에 포함 (`GET /api/customers`의 `q`와 같은 규칙). 비어 있으면 `invalid` 400 |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+응답은 3절 페이지 응답이다.
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID (고객 상세 `GET /api/customers/{customerId}`로 이동) |
+| `name` | string | 이름 |
+| `phone` | string | 마스킹한 휴대폰 `010-****-1234` (NFR-04, A4). 전체 번호는 `GET /api/customers/{customerId}/contact` |
+
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
+
 ### 매장 설정 (SET)
 
 **`GET /api/shop`** 매장 정보 · 영업시간 (FR-SET-01). 근무자. 매장 설정 화면과 예약 화면이 함께 쓴다 (F20).
