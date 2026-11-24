@@ -423,7 +423,7 @@
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 
-**`GET /api/customers/{customerId}`** 고객 상세 (FR-CUS-03 · 04 · 05). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404. 예약 · 예측 · 히스토리 · 상담 메모 · 동의 · 수신 이력 · 결제 · 연락처 전체는 기능 키가 달라 4절의 각 API로 따로 읽는다 (명세서 2장).
+**`GET /api/customers/{customerId}`** 고객 상세 (FR-CUS-03 · 04 · 05 · 11). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404. 예약 · 예측 · 히스토리 · 상담 메모 · 동의 · 수신 이력 · 결제 · 연락처 전체는 기능 키가 달라 4절의 각 API로 따로 읽는다 (명세서 2장).
 
 | 응답 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -439,8 +439,20 @@
 | `bookingRestrictionReason` | string \| null | 예약 제한 사유. 제한이 아니면 null |
 | `preferenceTags` | object[] | 취향 태그 `{ "category", "tag" }` (FR-CUS-04). 카테고리 · 태그 이름 순. 없으면 빈 배열 |
 | `preferenceMemo` | string \| null | 취향 자유 메모 (FR-CUS-04). 없으면 null |
+| `visitSummary` | object | 방문 요약 (FR-CUS-11). 아래 표 |
 
-- 방문 요약(FR-CUS-11)은 Keepsy #37에서 이 표에 필드를 더한다
+| `visitSummary` 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `visitCount` | number | 총 방문 횟수. 주기 계산 제외 방문 · 가져온 방문 포함 (C6, E5) |
+| `serviceCount` | number | 총 시술 건수. 한 방문의 시술 항목을 각각 센다 (C6) |
+| `firstVisitDate` · `lastVisitDate` | string \| null | 첫 · 마지막 방문일. 방문이 없으면 null |
+| `categories` | object[] | 시술 카테고리별 `{ "category", "visitCount", "averageIntervalDays" }`, 3절 「시술 카테고리」 순. 방문한 카테고리만 |
+| `menus` | object[] | 시술 메뉴별 `{ "serviceMenuId", "name", "category", "count" }`, 횟수가 많은 순. 한 방문에 여러 메뉴면 메뉴마다 센다 |
+
+- 카테고리 `visitCount`는 그 카테고리 시술이 있는 방문 수다 (주기 계산 제외 방문 포함)
+- `averageIntervalDays`는 예측(`customer_prediction`)의 평균 간격과 같은 값이다: 주기 계산 제외 방문을 뺀 최근 5개 간격 평균(반올림, FR-PRD-01). 그 근거 방문이 3회 미만이면 null이고 화면은 "—"로 표시한다
+- 메뉴 없는 가져온 방문(A13)은 카테고리마다 `serviceMenuId` · `name`이 null인 행 하나로 모으고, 화면은 "메뉴 미상"으로 표시한다
+- 단골 · 세그먼트 같은 라벨은 두지 않는다 (C15)
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
 **`GET /api/customers/{customerId}/predictions`** 카테고리별 예측 (FR-PRD-02 · 03 · 04, FR-CUS-03). `INSIGHT`. 고객 상세 화면이 공용이어도 이 영역은 "인사이트" 설정을 따른다 (A3 보완). 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 예측도 지운다, FR-CUS-10).
