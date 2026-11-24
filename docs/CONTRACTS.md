@@ -486,6 +486,15 @@
 - 겹침 · 영업시간 밖 · 매장 · 스탭 휴무면 `reservation_conflict` 409 (FR-RSV-04)
 - 예약 제한 고객인데 원장 PIN 인증이 없으면 `owner_pin_required` 403이고 `message`에 사유가 들어간다: `"예약 제한 고객입니다. 사유: …"` (FR-CUS-14)
 
+**`PATCH /api/reservations/{reservationId}`** 예약 수정 (FR-RSV-01). 기능 키 `RESERVATION`. 확정 예약만 수정한다 (F22). 성공하면 `204`. 등록과 같은 본문을 통째로 보내고, 빠진 선택 칸은 등록과 같은 기본값이 된다. 고객은 이 API로 바꾸지 않는다 (고객 없는 예약의 고객 연결은 `PUT /api/reservations/{reservationId}/customer`).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `staffId` · `startAt` · `minutes` · `channel` · `consultFirst` · `memo` · `serviceMenuIds` | | | `POST /api/reservations`와 같다 |
+
+- 같은 담당 스탭의 다른 확정 · 완료 예약과 겹치거나 영업시간 밖 · 매장 · 스탭 휴무면 `reservation_conflict` 409. 자기 자신과의 겹침은 보지 않는다 (FR-RSV-04)
+- 완료 · 취소 · 노쇼 예약이면 `conflict` 409 (F22), 다른 매장 · 없는 예약이면 `not_found` 404
+
 **`GET /api/reservations/{reservationId}`** 예약 상세 (FR-RSV-01, FR-CUS-05, FR-DSH-01). 기능 키 `RESERVATION`. 상태와 관계없이 조회한다.
 
 | 응답 필드 | 타입 | 설명 |
