@@ -403,6 +403,26 @@
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 
+**`GET /api/customers/{customerId}`** 고객 상세 (FR-CUS-03 · 04 · 05). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404. 예약 · 예측 · 히스토리 · 상담 메모 · 동의 · 수신 이력 · 결제 · 연락처 전체는 기능 키가 달라 4절의 각 API로 따로 읽는다 (명세서 2장).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID |
+| `name` | string | 이름 |
+| `phone` | string | 마스킹한 휴대폰 `010-****-1234` (NFR-04, A4). 전체 번호는 `GET /api/customers/{customerId}/contact` |
+| `gender` · `birthYear` · `preferredLanguage` · `acquisitionChannel` | string · number · string · string | 등록 때 받은 선택 항목. 없으면 null (`POST /api/customers` 요청 필드) |
+| `registeredAt` | string | 등록 일시 |
+| `serviceCaution` | string \| null | 시술 주의사항 (FR-CUS-05). 없으면 null |
+| `healthCaution` | string \| null | 건강 주의사항 (FR-CUS-05, D7). 없으면 null |
+| `noShowCount` | number | 노쇼 예약 수 (C8). 1 이상이면 화면 상단에 표시 |
+| `bookingRestricted` | boolean | 예약 제한 여부 (FR-CUS-14, P2) |
+| `bookingRestrictionReason` | string \| null | 예약 제한 사유. 제한이 아니면 null |
+| `preferenceTags` | object[] | 취향 태그 `{ "category", "tag" }` (FR-CUS-04). 카테고리 · 태그 이름 순. 없으면 빈 배열 |
+| `preferenceMemo` | string \| null | 취향 자유 메모 (FR-CUS-04). 없으면 null |
+
+- 방문 요약(FR-CUS-11)은 Keepsy #37에서 이 표에 필드를 더한다
+- 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
+
 **`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
 
 | 응답 필드 | 타입 | 설명 |
