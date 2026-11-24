@@ -403,6 +403,16 @@
 
 - 다른 매장 · 없는 스탭이면 `not_found` 404
 
+**`PUT /api/staff/{staffId}/pin`** 스탭 PIN 재설정 (FR-ACC-03). `OWNER_PIN`. 성공하면 `204`. 원장이 직원 스탭의 PIN을 새로 정한다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `pin` | string | 예 | 숫자 4~6자리 (C21). 같은 매장 다른 스탭(비활성 포함)의 PIN과 같으면 `duplicate` 409. 그 스탭의 지금 PIN과 같은 것은 허용 |
+
+- 원장 스탭이면 `invalid` 400. 원장 PIN은 매장 계정 비밀번호를 다시 확인하는 `PUT /api/owner-pin`(FR-ACC-09, F11)으로만 바꾼다
+- 다른 매장 · 없는 스탭이면 `not_found` 404
+- 그 스탭의 현재 근무자 · PIN 인증 세션은 그대로 둔다 (다음 PIN 입력부터 새 PIN)
+
 ### 고객 (CUS)
 
 **`POST /api/customers`** 고객 등록 (FR-CUS-01). `CUSTOMER_WRITE`. 성공하면 `201`. 처리 스탭은 현재 근무자다 (FR-ACC-10).
