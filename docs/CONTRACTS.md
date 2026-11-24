@@ -682,6 +682,21 @@
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 
+**`POST /api/message-templates`** 템플릿 작성 · **`PATCH /api/message-templates/{templateId}`** 수정 (FR-CMP-03, C10). `CAMPAIGN_SEND`. 작성은 `201`과 `{ "id": number }`, 수정은 `204`. 수정은 같은 본문을 통째로 보낸다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` | string | 예 | 1~100자 |
+| `body` | string | 예 | 치환 전 본문. 2,000바이트 이하(2장, FR-CMP-05와 같은 셈법: ASCII가 아닌 문자 2바이트, ASCII · 줄바꿈 1바이트). 광고 표기는 넣지 않아도 된다 (발송할 때 붙음, FR-CMP-04) |
+| `purpose` | string | 예 | 3절 「템플릿 용도」. 메시지 종류는 이 값으로 정해진다 |
+
+- 변수는 `{` `}`로 감싼 이름이다. 쓸 수 있는 변수: 모든 용도 `{고객명}` `{매장명}`, `CONSENT_RECONFIRM`이 아닌 용도 `{최근시술}` `{경과일}`, `CONSENT_RECONFIRM`만 `{동의일}` `{야간광고동의}` (C10). 그 밖의 변수가 있으면 `invalid` 400이고 `details`에 `field: "body"`
+- 다른 매장 · 없는 템플릿이면 `not_found` 404
+
+**`DELETE /api/message-templates/{templateId}`** 템플릿 삭제 (FR-CMP-03). `CAMPAIGN_SEND`. 본문 없음, 성공하면 `204`. 기본 템플릿도 지울 수 있다.
+
+- 캠페인이 쓰고 있는 템플릿이면 `conflict` 409 (캠페인 기록을 남기기 위해), 다른 매장 · 없는 템플릿이면 `not_found` 404
+
 **매장 기본 템플릿** (FR-CMP-03 · 13, D1). 매장 가입(`POST /api/shops`) 때 아래 4개를 그 매장 템플릿으로 만든다. 매장이 고칠 수 있는 일반 템플릿이다. 광고 본문 앞뒤의 광고 표기 · 매장명 · 전화번호 · 무료수신거부(FR-CMP-04)는 발송할 때 붙으므로 본문에 넣지 않는다.
 
 | 이름 | 용도 | 본문 |
@@ -723,6 +738,23 @@
 | `counts` | object | 시작 시각이 그 날인 예약을 예약 상태(3절)마다 센 건수, 0건 포함: `{ "CONFIRMED": number, "COMPLETED": number, "CANCELED": number, "NO_SHOW": number }`. 어떤 상태를 합쳐 "예약 건수"로 보일지는 화면이 고른다 |
 
 - 다른 매장 예약은 나오지 않는다 (NFR-03)
+
+**`GET /api/search/customers`** 상단 검색창의 고객 결과 (FR-SCH-04). `CUSTOMER_VIEW`. 기능 검색 자체는 `DASHBOARD_SEARCH`지만 고객 결과는 "고객 조회" 설정을 따른다 (명세서 2장). "고객 조회"가 PIN으로 잠겨 있으면 `pin_required` 403이고, 화면은 고객 결과를 자물쇠로 표시했다가 PIN 인증 뒤 다시 요청한다 (FR-SCH-05). 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `q` | string | 예 | 앞뒤 공백을 뺀 값이 숫자 4자리면 휴대폰 뒷자리 일치, 그 밖에는 이름에 포함 (`GET /api/customers`의 `q`와 같은 규칙). 비어 있으면 `invalid` 400 |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+응답은 3절 페이지 응답이다.
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID (고객 상세 `GET /api/customers/{customerId}`로 이동) |
+| `name` | string | 이름 |
+| `phone` | string | 마스킹한 휴대폰 `010-****-1234` (NFR-04, A4). 전체 번호는 `GET /api/customers/{customerId}/contact` |
+
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 
 ### 매장 설정 (SET)
 
