@@ -626,6 +626,16 @@
 
 - 고객 없는 예약(시술 마감 카드로만 완료, E3) · 확정이 아닌 예약이면 `conflict` 409
 
+**`PATCH /api/visits/{visitId}`** 방문의 실제 시술 · 시술별 담당 스탭 · 주기 계산 제외 수정 (FR-VIS-03 · 05). 기능 키 `CUSTOMER_EDIT`. 성공하면 `204`. 고객이 있는 방문이면 같은 트랜잭션에서 그 고객의 예측을 다시 계산한다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `services` | object[] | 예 | 방문의 실제 시술 전체 `{ "serviceMenuId": number, "staffId": number, "cycleExcluded"?: boolean }`, 1개 이상. 이 목록으로 바꾼다. 다른 매장 메뉴 · 스탭이면 `not_found` 404. 고객 없음으로 마감한 방문에 `cycleExcluded: true`면 `invalid` 400 (E3) |
+
+- 같은 메뉴의 기존 시술은 그 행을 남기고 담당 스탭 · 주기 계산 제외만 바꾼다(귀속 발송 F15 유지). 목록에서 빠진 메뉴의 시술은 지우고, 새 메뉴는 그 방문에 연결된 가장 이른 예약의 시술로 더한다 (F25)
+- "앞으로 ○○ 메뉴를 모두 주기 계산에서 제외할까요?" 안내(FR-VIS-05)는 응답에 넣지 않는다. 화면이 `GET /api/service-menus`의 `predictionAttribute`가 `NORMAL`인 메뉴에 체크하는 순간 띄우고, [예]면 `PATCH /api/service-menus/{menuId}`(`OWNER_PIN`)로 바꾼다
+- CSV로 가져온 방문이면 `conflict` 409 (F25), 다른 매장 · 없는 방문이면 `not_found` 404
+
 **`DELETE /api/visits/{visitId}`** 방문 삭제 = 그 방문의 마감 되돌리기 (FR-VIS-03, F8). 기능 키 `CUSTOMER_EDIT`이고, 그 방문에 취소되지 않은 결제가 있으면 `PAYMENT_EDIT`도 검사한다 (4장). 본문 없음, 성공하면 `204`.
 
 - 한 트랜잭션에서 연결된 예약을 모두 `CONFIRMED`로 되돌리고, 결제를 모두 취소 표시하고(이력은 남음), 시술 · 방문 메모 · 사진과 방문을 지운다
