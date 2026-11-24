@@ -403,6 +403,31 @@
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 
+**`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `current` | object[] | 항목별 현재 상태. 3절 「동의 항목」 다섯 개가 그 순서로 모두 들어간다 |
+| `history` | object[] | 동의 이력 전체, 기록한 순서(오래된 것부터) |
+
+| `current` 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `item` | string | 3절 「동의 항목」 |
+| `agreed` | boolean | 그 항목 최신 이력 행의 여부. 받은 적 없으면 false |
+| `recordedAt` | string \| null | 최신 이력 행의 일시. 받은 적 없으면 null (F19 "동의를 받은 적 없음"과 철회를 이 값으로 구분) |
+
+| `history` 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `consentId` | number | 이력 행 ID (정정 `POST /api/consents/{consentId}/corrections`의 대상) |
+| `item` | string | 3절 「동의 항목」 |
+| `agreed` | boolean | 동의면 true, 철회면 false |
+| `recordedAt` | string | 일시 |
+| `staff` | object \| null | 처리 스탭 `{ "id", "name" }`. 가상 휴대폰 [수신거부]처럼 스탭 없이 들어온 철회면 null |
+| `method` | string \| null | 3절 「동의 방법」. 스탭 없이 들어온 철회면 null |
+| `withdrawalPath` | string \| null | 3절 「철회 경로」. 철회 행에만 있고 동의 행은 null |
+
+- 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
+
 ### 예약 (RSV)
 
 **`GET /api/reservations`** 기간 예약 · 주간 캘린더 · 일간 보기 (FR-RSV-02 · 05). 기능 키 `RESERVATION`. 페이징 없음 (F13).
