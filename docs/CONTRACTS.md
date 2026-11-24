@@ -293,3 +293,18 @@
 | `shopId` | number | 만든 매장 ID |
 
 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유가 들어간다: `[{ "field": "ownerPin", "reason": "PIN은 숫자 4~6자리입니다" }]`.
+
+**`POST /api/session`** 매장 로그인 (FR-ACC-02). 비로그인. 성공하면 `200`이고 세션을 새로 발급한다 (세션 고정 방지). 로그인 직후에는 근무자가 없어 근무자 PIN 입력(`PUT /api/session/worker`)만 할 수 있다 (FR-ACC-10).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `email` | string | 예 | 비어 있지 않음 |
+| `password` | string | 예 | 비어 있지 않음 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `shopId` | number | 로그인한 매장 ID |
+| `shopName` | string | 매장 이름 |
+
+- 이메일이 없거나 비밀번호가 틀리면 둘을 구분하지 않고 `login_failed` 401
+- 5회 연속 실패하면 15분 동안 `login_locked` 429. 잠금 중에는 맞는 비밀번호도 거부한다 (C1). 원장 PIN 재설정의 비밀번호 확인 실패도 같은 횟수에 넣는다 (F11 · F14). 성공하면 횟수를 0으로 되돌린다
