@@ -662,6 +662,22 @@
 
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
+**`POST /api/customers/{customerId}/consents`** 동의 받기 · 철회 (FR-CUS-09, FR-CMP-11, E8). `CONSENT`(공용 고정). 요청 하나에 항목 하나다. 성공하면 `201`과 `{ "id": number }`(만든 이력 행 ID). 이력 행을 하나 더 쌓고 그 행이 그 항목의 현재 상태가 된다. 처리 스탭은 현재 근무자다 (FR-ACC-10).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `item` | string | 예 | 3절 「동의 항목」. `PRIVACY` 철회는 받지 않는다: `invalid` 400, 고객 삭제(FR-CUS-10)로 처리한다 (결정 F42) |
+| `agreed` | boolean | 예 | 동의면 true, 철회면 false |
+| `method` | string | 예 | 3절 「동의 방법」의 `TABLET`(태블릿 본인 체크) · `PAPER` · `VERBAL`. `IMPORT`는 CSV 등록에서만 쓰므로 `invalid` 400 |
+| `withdrawalPath` | string | 아니오 | 3절 「철회 경로」. 철회에만 쓰고 기본 `DIRECT`. `UNSUBSCRIBE`(스탭이 수신 거부를 직접 처리, FR-CMP-11)는 `MARKETING`에만 된다. 동의에 보내면 `invalid` 400 |
+
+- 지금 상태와 같아도 행을 쌓는다. 다시 받은 동의는 그 일시가 새 동의일이다 (D1)
+- 철회의 부수효과는 같은 트랜잭션에서 한다. `PHOTO`는 그 고객의 사진 행을 지우고 파일은 커밋 뒤에 지운다 (F16). `HEALTH`는 건강 주의사항만 비운다(시술 주의사항은 유지). `MARKETING`은 그 뒤의 대상 계산 · 발송 재검사(F7)에서 바로 빠진다
+- 건강 주의사항 저장(`PUT /api/customers/{customerId}/cautions`)과 `HEALTH` 철회는 같은 고객 행 잠금으로 차례를 정해, 철회 뒤에 건강 주의사항이 남지 않게 한다
+- 수신 거부 처리 안내 자동 발송(FR-CMP-11)은 이 API가 아니라 수신 거부 반영 기능이 맡는다
+- 다른 매장 · 삭제된 고객이면 `not_found` 404. 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유가 들어간다
+- 그 고객에 대한 수정으로 접근 로그에 남긴다 (NFR-06)
+
 **`GET /api/photos/{photoId}/file?expires=&signature=`** 사진 파일 (NFR-07, F16). 권한은 기능 키 대신 매장 로그인 + 서명 URL이다. URL은 사진을 보여 주는 API(시술 히스토리북 등)가 권한 · 사진 동의를 확인한 뒤 만들어 응답에 담고, 화면은 그 URL을 그대로 `<img src>`에 쓴다.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
