@@ -405,6 +405,30 @@
 
 ### 예약 (RSV)
 
+**`GET /api/reservations`** 기간 예약 · 주간 캘린더 · 일간 보기 (FR-RSV-02 · 05). 기능 키 `RESERVATION`. 페이징 없음 (F13).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `from` · `to` | string | 예 | 날짜(3절, Asia/Seoul). `to`를 포함하고 `from` ≤ `to`, 최대 7일. 주간은 월요일부터 7일(F10), 일간은 `from` = `to` |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `reservations` | object[] | 시작 시각이 기간 안인 예약, 시작 시각 순. 취소 · 노쇼도 포함하고 화면이 `status`로 거른다 |
+
+| 예약 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 예약 ID |
+| `status` | string | 예약 상태(3절) |
+| `startAt` | string | 시작 시각(3절 시각 형식) |
+| `minutes` | number | 소요 시간(분) |
+| `staff` | object | 담당 스탭 `{ "id": number, "name": string }`. 스탭별 열은 화면이 이 값으로 묶는다 |
+| `consultFirst` | boolean | [상담 후 진행] (A13) |
+| `channel` | string | 예약 경로(3절) |
+| `customer` | object \| null | `{ "id": number, "name": string \| null }`. null이면 고객 없는 예약이라 화면은 예약 경로와 예정 시술로 표시한다 (E3). 연락처는 넣지 않는다 |
+| `services` | object[] | 예정 시술 `{ "serviceMenuId": number, "name": string }`, 등록 순 |
+
+- `from` · `to`가 없거나 날짜가 아니거나, `from` > `to`이거나 7일을 넘으면 `invalid` 400
+
 **`GET /api/reservations/available-times`** 예약 가능한 시작 시각 (FR-RSV-04). 기능 키 `RESERVATION`.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
