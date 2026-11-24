@@ -841,6 +841,27 @@
 
 - 다른 매장 예약은 나오지 않는다 (NFR-03)
 
+**`GET /api/dashboard/booking-channels`** 예약 경로 통계 (FR-DSH-06, P2). 기능 키 `DASHBOARD_SEARCH`. 대상은 결정 F27: 시작일(Asia/Seoul, NFR-12)이 기간 안인 예약을 상태와 관계없이(취소 · 노쇼 포함) 모두 세고, 고객 없는 예약도 넣는다 (E3). 화면은 결과를 시드 데이터 비율로 밝힌다 (FR-DSH-06).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `period` · `from` · `to` | string | `GET /api/analytics/summary`와 같음 | 같은 값과 규칙 (F24) |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `from` · `to` | string | 계산에 쓴 기간(3절 날짜, 둘 다 포함) |
+| `total` | number | 기간 안 예약 수 |
+| `channels` | object[] | 예약 경로(3절)마다 하나, 3절 순서(`NAVER` `KAKAO` `PHONE` `STORE` `ETC`)로 5개. 0건 경로도 넣는다 |
+
+| 경로 필드 (`channels`) | 타입 | 설명 |
+| --- | --- | --- |
+| `channel` | string | 예약 경로(3절) |
+| `count` | number | 그 경로의 예약 수 |
+| `ratio` | number | `count` ÷ `total`, 0~1 (반올림하지 않음, 표시 자리수는 화면이 정한다). `total`이 0이면 0 |
+
+- `period` · `from` · `to`가 규칙에 맞지 않으면 `invalid` 400 (`GET /api/analytics/summary`와 같음)
+- 다른 매장 예약은 세지 않는다 (NFR-03)
+
 **`GET /api/search/customers`** 상단 검색창의 고객 결과 (FR-SCH-04). `CUSTOMER_VIEW`. 기능 검색 자체는 `DASHBOARD_SEARCH`지만 고객 결과는 "고객 조회" 설정을 따른다 (명세서 2장). "고객 조회"가 PIN으로 잠겨 있으면 `pin_required` 403이고, 화면은 고객 결과를 자물쇠로 표시했다가 PIN 인증 뒤 다시 요청한다 (FR-SCH-05). 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
