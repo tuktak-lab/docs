@@ -359,3 +359,87 @@
 
 - `consents`의 항목마다 동의 이력 행(동의함, 동의 방법, 처리 스탭)을 만든다. 동의하지 않은 항목은 행을 만들지 않으므로 "동의를 받은 적 없음"이 된다 (F19)
 - 같은 번호의 삭제된 고객은 번호가 비어 있어 중복으로 보지 않고, 예전 기록과 연결하지 않은 새 고객이 된다 (C12 보완)
+
+### 예약 (RSV)
+
+**`GET /api/reservations/available-times`** 예약 가능한 시작 시각 (FR-RSV-04). 기능 키 `RESERVATION`.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `staffId` | number | 예 | 담당 스탭. 다른 매장 스탭이면 `not_found` 404, 비활성 스탭이면 `invalid` 400 (FR-ACC-04) |
+| `date` | string | 예 | 날짜 (`YYYY-MM-DD`) |
+| `minutes` | number | 예 | 소요 시간. 30분 단위가 아니면 `invalid` 400 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `startTimes` | string[] | 고를 수 있는 시작 시각(3절 시각 형식), 이른 순. 영업시간 밖 · 휴무일 · 확정 · 완료 예약과 겹치는 시각은 빠진다. 없으면 빈 배열 (C7) |
+
+**`POST /api/reservations`** 예약 등록 (FR-RSV-01). 기능 키 `RESERVATION`. 성공하면 `201`이고 상태는 `CONFIRMED`다. 저장할 때 서버가 겹침을 다시 검사하고, 동시에 같은 시간을 잡으면 하나만 저장한다 (1절).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `customerId` | number \| null | 아니요 | null이면 고객 없는 예약 (E3). 다른 매장 · 삭제된 고객이면 `not_found` 404 |
+| `staffId` | number | 예 | 담당 스탭. 다른 매장 스탭 `not_found` 404, 비활성 스탭 `invalid` 400 |
+| `startAt` | string | 예 | 시작 시각(3절 시각 형식). 30분 단위 |
+| `minutes` | number | 아니요 | 소요 시간, 30분 단위. 빼면 예정 시술 메뉴 소요 시간 합계 |
+| `channel` | string | 아니요 | 예약 경로(3절). 빼면 `STORE` |
+| `consultFirst` | boolean | 아니요 | [상담 후 진행] (A13). 빼면 false |
+| `memo` | string \| null | 아니요 | 1,000자 이하. 고객 없는 예약에 보내면 `invalid` 400 (E3) |
+| `serviceMenuIds` | number[] | 예 | 예정 시술 메뉴, 1개 이상 (A13). 다른 매장 메뉴면 `not_found` 404 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 만든 예약 ID |
+
+- 겹침 · 영업시간 밖 · 매장 · 스탭 휴무면 `reservation_conflict` 409 (FR-RSV-04)
+- 예약 제한 고객인데 원장 PIN 인증이 없으면 `owner_pin_required` 403이고 `message`에 사유가 들어간다: `"예약 제한 고객입니다. 사유: …"` (FR-CUS-14)
+
+**`POST /api/reservations/{reservationId}/cancel`** 예약 취소 · **`POST /api/reservations/{reservationId}/no-show`** 노쇼 (FR-RSV-03). 기능 키 `RESERVATION`. 본문 없음, 성공하면 `204`.
+
+- 확정이 아닌 예약이면 `conflict` 409. 노쇼는 시작 시각이 지난 뒤에만 되고, 그 전이면 `conflict` 409 (C8)
+- 고객 없는 예약도 노쇼 처리할 수 있다 (E3)
+
+**`PUT /api/reservations/{reservationId}/customer`** 고객 없는 예약에 고객 연결 (FR-RSV-01, FR-DSH-01). 기능 키 `RESERVATION`.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `customerId` | number | 예 | 다른 매장 · 삭제된 고객이면 `not_found` 404 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `notice` | string \| null | 예약 제한 고객이면 `"예약 제한 고객입니다. 사유: …"`, 아니면 null. 제한 고객도 PIN 없이 연결한다 (FR-CUS-14, E3) |
+
+- 이미 고객이 있거나 확정이 아닌 예약이면 `conflict` 409
+
+### 방문 (VIS)
+
+**`POST /api/reservations/{reservationId}/complete`** 결제 없이 완료 처리 (FR-VIS-01). 기능 키 `RESERVATION`. 같은 고객 · 같은 날 방문이 있으면 그 방문에 시술을 더한다 (C6). 방문일은 예약일이다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `serviceMenuIds` | number[] | 아니요 | 확인한 실제 시술, 1개 이상. 빼면 예정 시술 그대로. [상담 후 진행] 예약은 보내야 하고, 빼면 `invalid` 400 (A13) |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `visitId` | number | 연결된 방문 ID |
+
+- 고객 없는 예약(시술 마감 카드로만 완료, E3) · 확정이 아닌 예약이면 `conflict` 409
+
+### 시술 마감 · 결제 (PAY)
+
+**`POST /api/reservations/{reservationId}/closing`** 시술 마감 카드 저장 (FR-PAY-01 · 04). 기능 키 `RESERVATION`. 결제 · 방문 생성 · 방문 메모 · 예약 완료를 한 트랜잭션으로 처리한다. 완료된 예약이면 같은 방문에 결제 · 메모만 더한다 (E4). 사진(`POST /api/visits/{visitId}/photos`)과 동의 받기는 따로 저장한다 (F9).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `services` | object[] \| null | 아니요 | 실제 시술 `{ "serviceMenuId": number, "staffId": number, "cycleExcluded"?: boolean }`, 1개 이상. 빼면 예정 시술을 예약 담당 스탭으로 채운다. [상담 후 진행] 예약은 보내야 한다 (A13). 완료된 예약에 보내면 `invalid` 400 (시술 수정은 방문 수정, E4). 다른 매장 메뉴 · 스탭이면 `not_found` 404 |
+| `amount` | number | 예 | 원 단위 정수, 0 이상 |
+| `method` | string | 예 | 결제 수단(3절) |
+| `memo` | string \| null | 아니요 | 방문 메모, 1,000자 이하 (F1). 고객 없음 마감 · 고객 없는 방문이면 `invalid` 400 (E3) |
+| `noCustomer` | boolean | 아니요 | 고객 없는 예약을 "고객 없음"으로 마감 (E3). 이때 `cycleExcluded`와 `memo`는 받지 않는다. 고객이 있는 예약에 true면 `invalid` 400 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `visitId` | number | 결제가 붙은 방문 ID. 사진은 이 ID로 올린다 (F9) |
+
+- 고객 없는 예약을 고객 연결 없이(`noCustomer` 없이) 마감하면 `conflict` 409. 먼저 `PUT /api/reservations/{reservationId}/customer`로 연결한다
+- 취소 · 노쇼 예약이면 `conflict` 409 (FR-PAY-01)
