@@ -74,6 +74,7 @@
 | ID | 숫자 (`BIGINT`) |
 | 날짜 | `YYYY-MM-DD` (Asia/Seoul 기준 날짜) |
 | 시각 | ISO 8601, 오프셋 포함 (`2026-11-23T14:30:00+09:00`) |
+| 시:분 | `HH:mm` 24시간 (`09:30`). 영업시간처럼 날짜 없는 시각 (F20) |
 | 금액 | 원 단위 정수 |
 | 페이지 요청 | `?page=0&size=20` (0부터) |
 | 페이지 응답 | `{ "items": [...], "page": 0, "size": 20, "totalElements": 123 }` |
@@ -99,6 +100,7 @@
 | 방문 출처 | `NORMAL` `IMPORT` | 제안 |
 | 고객 상태 | `ACTIVE` `DELETED` | 제안 (C12) |
 | 스탭 상태 | `ACTIVE` `INACTIVE` | 제안 (FR-ACC-04) |
+| 요일 | `MONDAY` `TUESDAY` `WEDNESDAY` `THURSDAY` `FRIDAY` `SATURDAY` `SUNDAY` (영업시간, 스탭 정기 휴무 요일) | 결정 F20 |
 | 예측 상태 | `SCHEDULED`(예정) `DUE`(주기 도래) `CHURN_SIGNAL`(이탈 신호) `LONG_ABSENT`(장기 미방문) `NO_PREDICTION`(예측 없음) | 제안 (FR-PRD-01·04) |
 | 처리 표시 | `CONTACTED` `ON_HOLD` `CLOSED` | 제안 (FR-PRD-07) |
 | 다음 액션 | `REVISIT` `CHECK_IN` `WIN_BACK`(템플릿 용도와 같은 값) `REQUEST_CONSENT`(다음 방문 시 동의 요청). 액션이 없으면 `null` | 결정 F19 (FR-PRD-06) |
@@ -535,4 +537,14 @@
 
 ### 매장 설정 (SET)
 
-구현을 시작할 때 이 소절에 채운다. 다른 영역 소절은 건드리지 않는다.
+**`GET /api/shop`** 매장 정보 · 영업시간 (FR-SET-01). 근무자. 매장 설정 화면과 예약 화면이 함께 쓴다 (F20).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `name` | string | 매장명 |
+| `phone` | string \| null | 매장 연락처 (광고 표기, FR-CMP-04) |
+| `senderNumber` | string \| null | 발신번호 |
+| `unsubscribeNumber` | string \| null | 수신 거부 번호 |
+| `openingHours` | object[] | 요일별 영업시간 7개, `MONDAY`부터 `SUNDAY` 순서. `{ "dayOfWeek": string, "open": string \| null, "close": string \| null }`. 시각은 3절 「시:분」, 정기 휴무인 요일은 `open` · `close`가 `null` (C7) |
+
+- 근무자가 없으면 `worker_required` 403
