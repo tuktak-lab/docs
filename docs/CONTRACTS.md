@@ -651,6 +651,17 @@
 
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
+**`GET /api/photos/{photoId}/file?expires=&signature=`** 사진 파일 (NFR-07, F16). 권한은 기능 키 대신 매장 로그인 + 서명 URL이다. URL은 사진을 보여 주는 API(시술 히스토리북 등)가 권한 · 사진 동의를 확인한 뒤 만들어 응답에 담고, 화면은 그 URL을 그대로 `<img src>`에 쓴다.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `expires` | number | 예 | 만료 시각(Unix 초). 발급 뒤 5분 |
+| `signature` | string | 예 | 사진 ID · 매장 ID · `expires`의 HMAC-SHA256 서명 (Base64 URL) |
+
+- 성공하면 `200`이고 본문은 파일 그대로다. `Content-Type`은 파일 앞 바이트로 정한다 (`image/jpeg` · `image/png` · `image/gif`, 그 밖에는 `application/octet-stream`)
+- 서명이 틀리거나 만료됐거나, 세션 매장과 서명 매장이 다르거나, 다른 매장 · 없는 사진이거나, 저장소에 파일이 없으면 모두 `not_found` 404다. 어느 쪽인지 알려 주지 않는다. 만료된 사진은 화면이 그 사진을 보여 주는 API를 다시 불러 새 URL을 받는다
+- 로그인하지 않았으면 `unauthorized` 401
+
 **`GET /api/customers/{customerId}/messages`** 수신 이력 · 캠페인 연결 기록 (FR-CUS-03, FR-ANL-04). `CAMPAIGN_VIEW`. 고객 상세 화면이 공용이어도 이 영역은 "캠페인 목록·결과 조회" 설정을 따른다 (명세서 2장). 다른 매장 · 삭제된 고객이면 `not_found` 404. 그 고객이 **받은** 메시지(발송 성공 `SENT`)만, 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없이 받은 시각 최신순으로 준다. 대기 · 실패 · 대조군 행은 넣지 않는다 (결정 F37). 결제 금액은 `GET /api/customers/{customerId}/payments`다.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
