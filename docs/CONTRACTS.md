@@ -733,6 +733,23 @@
 
 구현을 시작할 때 이 소절에 채운다. 다른 영역 소절은 건드리지 않는다.
 
+**`GET /api/analytics/summary`** 매장 기본 지표 (FR-ANL-05 · 06). `SALES_ANALYTICS`. 산식은 결정 F24. 날짜는 Asia/Seoul (NFR-12). 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9). 주기 내 재방문율은 아직 응답에 없다 (F24, 스키마 결정 뒤 이 응답에 더함).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `period` | string | 예 | `TODAY` · `THIS_WEEK`(이번 주 월요일~일요일, F10) · `THIS_MONTH` · `LAST_MONTH` · `CUSTOM` |
+| `from` · `to` | string | `CUSTOM`이면 예 | 날짜(3절), 둘 다 포함. `from` ≤ `to`, 길이 제한 없음. `CUSTOM`이 아니면 읽지 않는다 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `from` · `to` | string | 계산에 쓴 기간(3절 날짜, 둘 다 포함) |
+| `revenue` | number | 매출(원): 결제일이 기간 안이고 취소되지 않은 결제 합계. 고객 없는 방문 · 삭제된 고객의 결제 포함 (FR-PAY-02, E3, C12) |
+| `visitCount` | number | 방문일이 기간 안인 방문 수. CSV로 가져온 방문은 빼고 고객 없는 방문은 넣는다 (FR-CUS-13, E3) |
+| `newCustomerCount` | number | 첫 방문일(가져온 방문 포함)이 기간 안인 고객 수. 고객 없는 방문은 빠지고 삭제된 고객은 센다 (E9, C12) |
+
+- `period`가 없거나 값이 틀리면, `CUSTOM`인데 `from` · `to`가 없거나 날짜가 아니거나 `from` > `to`이면 `invalid` 400
+- 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
+
 **`GET /api/dashboard/today`** 오늘 예약 · 마감 안 된 예약 · 이번 주 예약 요약 (FR-DSH-01 · 03 · 05). 기능 키 `DASHBOARD_SEARCH`. "오늘" · "지금" · "이번 주"는 Asia/Seoul 기준이고 (NFR-12), 이번 주는 오늘이 속한 주의 월요일부터 일요일까지다 (F10). 페이징 없음.
 
 | 응답 필드 | 타입 | 설명 |
