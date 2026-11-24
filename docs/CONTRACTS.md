@@ -487,6 +487,27 @@
 
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
+**`GET /api/customers/{customerId}/payments`** 결제 금액 이력 (FR-ANL-04). `SALES_ANALYTICS`. 고객 상세 화면이 공용이어도 이 영역은 "매출·성과 분석 조회" 설정을 따른다 (명세서 2장). 다른 매장 · 삭제된 고객이면 `not_found` 404. 정렬은 결제 시각 최신순. 취소된 결제도 이력으로 남아 있으므로 빼지 않고 `canceled`로 표시한다 (명세서 5장 payment, F8).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+응답은 3절 페이지 응답이다.
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `paymentId` | number | 결제 ID (결제 수정 · 취소 `PATCH /api/payments/{paymentId}` · `POST /api/payments/{paymentId}/cancel`의 대상) |
+| `paidAt` | string | 결제 시각 |
+| `amount` | number | 금액(원). 취소된 결제도 취소 전 금액 그대로 |
+| `method` | string | 3절 「결제 수단」 |
+| `canceled` | boolean | 취소 여부 (FR-PAY-02, F8) |
+| `reservationId` | number | 결제를 등록한 예약 ID (FR-VIS-02) |
+| `visitId` | number \| null | 결제가 붙은 방문 ID. 방문 삭제(마감 되돌리기)로 취소된 결제면 null (F8) |
+
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
+- 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
+
 ### 예약 (RSV)
 
 **`GET /api/reservations`** 기간 예약 · 주간 캘린더 · 일간 보기 (FR-RSV-02 · 05). 기능 키 `RESERVATION`. 페이징 없음 (F13).
