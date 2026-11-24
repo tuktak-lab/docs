@@ -918,6 +918,30 @@
 
 구현을 시작할 때 이 소절에 채운다. 다른 영역 소절은 건드리지 않는다.
 
+**`GET /api/insights?status=&category=`** 인사이트 목록 (FR-PRD-04 · 05 · 06 · 09). `INSIGHT`. 한 행 = 고객 × 시술 카테고리 (E7). 우선순위 순(FR-PRD-09: 경과 비율 높은 순 → 수신 동의 먼저 → 최근 6개월 결제 합계 높은 순, 같으면 고객 · 카테고리 순)으로 페이지를 나눈다.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `status` | string | 아니오 | 3절 「예측 상태」의 `SCHEDULED` · `DUE` · `CHURN_SIGNAL` · `LONG_ABSENT` (상태별 탭). 비우면 네 상태 모두. `NO_PREDICTION`이나 그 밖의 값은 `invalid` 400 |
+| `category` | string | 아니오 | 3절 「시술 카테고리」 |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID |
+| `name` | string | 고객 이름 |
+| `category` | string | 3절 「시술 카테고리」 |
+| `status` | string | 오늘(Asia/Seoul) 기준 3절 「예측 상태」 |
+| `lastServiceDate` | string | 이 카테고리 마지막 시술일 (주기 계산 제외 방문은 뺌, FR-PRD-01) |
+| `elapsedDays` | number | 경과일: 오늘 − `lastServiceDate` |
+| `startDate` · `endDate` | string | 예측 기간. 종료 신호면 둘 다 종료 신호 방문일 |
+| `marketingConsent` | boolean | 마케팅 동의 최신 행이 동의인지. 받은 적 없으면 false |
+| `nextAction` | string \| null | 3절 「다음 액션」. 주기 도래 · 이탈 신호 · 장기 미방문 + 동의면 `REVISIT` · `CHECK_IN` · `WIN_BACK`, 동의를 받은 적 없으면(행 없음 또는 철회 경로 없는 미동의, CSV 가져오기 포함) `REQUEST_CONSENT`, 동의를 철회한 고객(`DIRECT` · `UNSUBSCRIBE`)과 예정 상태는 null (FR-PRD-06, F19) |
+
+- 예측 없음 카테고리, 다음 예약(오늘 이후 확정 예약, 아직 완료되지 않은 오늘 예약 포함)에 그 카테고리 시술이 있는 행, 삭제된 고객은 나오지 않는다 (FR-PRD-01 · 04, FR-CUS-10)
+- 처리 표시(FR-PRD-07, P2)는 아직 응답에 없다. 구현할 때 이 표에 더한다
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400. 행이 없으면 빈 페이지
+
 ### 캠페인 · 발송 · 가상 휴대폰 (CMP)
 
 구현을 시작할 때 이 소절에 채운다. 다른 영역 소절은 건드리지 않는다.
