@@ -1161,6 +1161,7 @@
 | `senderNumber` | string \| null | 발신번호 |
 | `unsubscribeNumber` | string \| null | 수신 거부 번호 |
 | `openingHours` | object[] | 요일별 영업시간 7개, `MONDAY`부터 `SUNDAY` 순서. `{ "dayOfWeek": string, "open": string \| null, "close": string \| null }`. 시각은 3절 「시:분」, 정기 휴무인 요일은 `open` · `close`가 `null` (C7) |
+| `retentionYears` | number | 보관 기간(년). 동의서 고지 문구에 쓴다 (FR-SET-06, FR-CUS-01, F40). 바꾸는 곳은 `PUT /api/settings` |
 
 - 근무자가 없으면 `worker_required` 403
 
@@ -1178,6 +1179,7 @@
 
 - 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유
 - 임시 휴무일은 `POST /api/day-offs`, 스탭 정기 휴무 요일은 `PATCH /api/staff/{staffId}`로 바꾼다
+- `GET /api/shop`의 `retentionYears`는 보내도 무시한다. 보관 기간은 `PUT /api/settings`로 바꾼다 (F40)
 
 **`GET /api/service-menus`** 시술 메뉴 (FR-SET-02). 근무자. 예약 화면이 소요 시간 합계를 기본값으로 쓴다 (FR-RSV-01). 페이징 없음 (F22).
 
@@ -1270,3 +1272,30 @@
 **`DELETE /api/day-offs/{dayOffId}`** 휴무일 삭제 (FR-SET-07). `OWNER_PIN`. 본문 없음, 성공하면 `204`. 그날 다시 예약할 수 있다.
 
 - 다른 매장 · 없는 휴무일이면 `not_found` 404
+
+**`GET /api/settings`** 매장 설정값 (FR-SET-03 · 04 · 06). `OWNER_PIN`. 가입 직후에는 아래 기본값이다.
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `churnSignalCapDays` | number | 이탈 신호 기간 상한(일). 기본 120 (FR-SET-03, C15) |
+| `attributionDays` | number | 귀속 기간(일). 기본 14 (FR-SET-04, FR-ANL-03) |
+| `dailySendLimit` | number | 일 발송 한도(건). 기본 500 (FR-SET-04, FR-CMP-12, B1) |
+| `resendBlockDays` | number | 재발송 제한 기간(일). 기본 7, 0이면 제한 없음 (FR-SET-04, FR-CMP-02, B2) |
+| `virtualFailurePercent` | number | 가상 발송 무작위 실패 비율(%). 기본 0 (FR-CMP-10, F17) |
+| `retentionYears` | number | 보관 기간(년). 기본 3 (FR-SET-06, D3) |
+
+- 가상 단가는 화면에서 바꾸지 않아 넣지 않는다 (명세서 5장 shop)
+
+**`PUT /api/settings`** 매장 설정값 수정 (FR-SET-03 · 04 · 06). `OWNER_PIN`. 위와 같은 모양을 통째로 보낸다. 성공하면 `204`. 바꾼 값은 그 값을 쓰는 계산(예측 상태 · 귀속 · 발송 한도 · 재발송 제한 · 가상 발송 · 파기 대상)이 다음 요청부터 읽는다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 (F40) |
+| --- | --- | --- | --- |
+| `churnSignalCapDays` | number | 예 | 30~365 |
+| `attributionDays` | number | 예 | 1~60 |
+| `dailySendLimit` | number | 예 | 1~10,000 |
+| `resendBlockDays` | number | 예 | 0~60 |
+| `virtualFailurePercent` | number | 예 | 0~100 |
+| `retentionYears` | number | 예 | 1~5 (D3) |
+
+- 칸이 빠지거나 범위를 벗어나면 `invalid` 400이고 `details`에 칸별 사유. 하나라도 틀리면 아무것도 바꾸지 않는다
+- 보관 기간을 바꾸면 동의서 고지 문구(`GET /api/shop`의 `retentionYears`)도 같이 바뀐다 (FR-SET-06)
