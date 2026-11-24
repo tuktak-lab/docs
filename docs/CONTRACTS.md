@@ -435,6 +435,26 @@
 - 겹침 · 영업시간 밖 · 매장 · 스탭 휴무면 `reservation_conflict` 409 (FR-RSV-04)
 - 예약 제한 고객인데 원장 PIN 인증이 없으면 `owner_pin_required` 403이고 `message`에 사유가 들어간다: `"예약 제한 고객입니다. 사유: …"` (FR-CUS-14)
 
+**`GET /api/reservations/{reservationId}`** 예약 상세 (FR-RSV-01, FR-CUS-05, FR-DSH-01). 기능 키 `RESERVATION`. 상태와 관계없이 조회한다.
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 예약 ID |
+| `status` | string | 예약 상태(3절) |
+| `startAt` | string | 시작 시각(3절 시각 형식) |
+| `minutes` | number | 소요 시간(분) |
+| `channel` | string | 예약 경로(3절) |
+| `consultFirst` | boolean | [상담 후 진행] (A13). true면 화면에 "상담 후 진행"으로 표시한다 |
+| `memo` | string \| null | 메모. 고객 없는 예약이면 null (E3) |
+| `staff` | object | 담당 스탭 `{ "id": number, "name": string }`. 비활성 스탭도 그대로 보여준다 |
+| `services` | object[] | 예정 시술 `{ "serviceMenuId": number, "name": string, "price": number }`, 등록 순. `price`는 지금 메뉴 가격(원) |
+| `customer` | object \| null | `{ "id": number, "name": string \| null, "serviceCaution": string \| null, "healthCaution": string \| null }`. 주의사항은 상단 표시용이다 (FR-CUS-05). `healthCaution`은 건강 정보 동의 고객만 값이 있다 (D7). 삭제된 고객이면 `name`이 null (C12). 연락처는 넣지 않는다 (고객 상세에서 본다, NFR-04) |
+| `visitId` | number \| null | 완료된 예약의 방문 ID |
+
+- `customer`가 null이면 고객 없는 예약이다. 확정 상태면 `PUT /api/reservations/{reservationId}/customer`로 고객을 연결한다 (E3, FR-DSH-01)
+- 고객이 있는 예약을 조회하면 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
+- 다른 매장 · 없는 예약이면 `not_found` 404
+
 **`POST /api/reservations/{reservationId}/cancel`** 예약 취소 · **`POST /api/reservations/{reservationId}/no-show`** 노쇼 (FR-RSV-03). 기능 키 `RESERVATION`. 본문 없음, 성공하면 `204`.
 
 - 확정이 아닌 예약이면 `conflict` 409. 노쇼는 시작 시각이 지난 뒤에만 되고, 그 전이면 `conflict` 409 (C8)
