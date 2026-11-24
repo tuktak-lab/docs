@@ -93,6 +93,8 @@
 | 예약 상태 | `CONFIRMED` `COMPLETED` `CANCELED` `NO_SHOW` | 제안 (C8) |
 | 예약 경로 | `NAVER` `KAKAO` `PHONE` `STORE` `ETC` | 제안 (E3) |
 | 유입 경로 | `INSTAGRAM` `NAVER_SEARCH` `REFERRAL` `PASSING_BY` `ETC` | 제안 (FR-CUS-01) |
+| 성별 | `FEMALE` `MALE` `OTHER` | 제안 (FR-CUS-01) |
+| 선호 언어 | `KO` `EN` `ZH` `JA` `ETC` | 제안 (FR-I18N-01) |
 | 결제 수단 | `CARD` `CASH` `TRANSFER` `ETC` | 제안 (C9) |
 | 방문 출처 | `NORMAL` `IMPORT` | 제안 |
 | 고객 상태 | `ACTIVE` `DELETED` | 제안 (C12) |
@@ -335,3 +337,25 @@
 
 - 맞는 활성 스탭이 없으면(틀린 PIN, 비활성 스탭) `pin_invalid` 400
 - 매장 단위로 5회 연속 실패하면 5분 동안 `pin_locked` 429. 잠긴 기능 PIN 인증과 실패 횟수를 같이 센다 (C22). 성공하면 0으로 되돌린다
+
+### 고객 (CUS)
+
+**`POST /api/customers`** 고객 등록 (FR-CUS-01). `CUSTOMER_WRITE`. 성공하면 `201`. 처리 스탭은 현재 근무자다 (FR-ACC-10).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` | string | 예 | 1~50자 |
+| `phone` | string | 예 | `010`으로 시작하는 11자리, 하이픈은 있어도 없어도 된다. `010-0000-0000` 형태로 저장한다. 같은 매장에 있으면 `duplicate` 409 |
+| `consents` | string[] | 예 | 동의한 항목(3절 「동의 항목」). `PRIVACY`가 없으면 `invalid` 400 (E3). 동의하지 않은 항목은 넣지 않는다 |
+| `consentMethod` | string | 예 | `TABLET` · `PAPER` · `VERBAL`. 등록 때 받은 동의 모두에 쓴다 (`IMPORT`는 CSV 전용) |
+| `gender` | string | 아니오 | 3절 「성별」 |
+| `birthYear` | number | 아니오 | 1900 ~ 올해 |
+| `preferredLanguage` | string | 아니오 | 3절 「선호 언어」 |
+| `acquisitionChannel` | string | 아니오 | 3절 「유입 경로」 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 만든 고객 ID |
+
+- `consents`의 항목마다 동의 이력 행(동의함, 동의 방법, 처리 스탭)을 만든다. 동의하지 않은 항목은 행을 만들지 않으므로 "동의를 받은 적 없음"이 된다 (F19)
+- 같은 번호의 삭제된 고객은 번호가 비어 있어 중복으로 보지 않고, 예전 기록과 연결하지 않은 새 고객이 된다 (C12 보완)
