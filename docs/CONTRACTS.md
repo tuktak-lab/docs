@@ -948,6 +948,7 @@
 
 - 변수는 `{` `}`로 감싼 이름이다. 쓸 수 있는 변수: 모든 용도 `{고객명}` `{매장명}`, `CONSENT_RECONFIRM`이 아닌 용도 `{최근시술}` `{경과일}`, `CONSENT_RECONFIRM`만 `{동의일}` `{야간광고동의}` (C10). 그 밖의 변수가 있으면 `invalid` 400이고 `details`에 `field: "body"`
 - 다른 매장 · 없는 템플릿이면 `not_found` 404
+- 작성 중(`DRAFT`) · 예약 발송 대기(`SCHEDULED`) 캠페인이 쓰는 템플릿은 수정할 수 없다: `conflict` 409. 검토한 문구와 캠페인의 메시지 종류가 바뀌지 않게 한다 (결정 F43). 발송 중 · 발송 완료 · 취소 캠페인만 쓰면 수정할 수 있다
 
 **`DELETE /api/message-templates/{templateId}`** 템플릿 삭제 (FR-CMP-03). `CAMPAIGN_SEND`. 본문 없음, 성공하면 `204`. 기본 템플릿도 지울 수 있다.
 
@@ -998,6 +999,13 @@
 - 만들 때 대상을 다시 고르고(미리 계산 뒤 바뀐 동의 · 발송 기록을 반영) `campaign_target`에 저장한다. 제외 후 대상이 0명이면 `invalid` 400
 - 대조군: 제외 후 대상 수 × `controlPercent` ÷ 100을 내림한 인원을 무작위로 고른다. 예: 100명 · 10%면 대조군 10명, 발송 대상 90명. 대조군은 발송하지 않고, 발송을 시작할 때 대조군 행으로 기록된다 (F7)
 - 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유가 들어간다
+
+**`POST /api/campaigns/{campaignId}/review`** 검토 체크 (FR-CMP-06 · 13). `CAMPAIGN_SEND`. 본문 없음, 성공하면 `204`. 검토자와 검토 시각을 캠페인에 기록한다. 검토자는 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자다 (ARCHITECTURE 6장 「기록에 남는 사람」).
+
+- 작성 중(`DRAFT`) 캠페인만 된다. 다시 체크하면 검토자 · 시각을 새로 쓴다. 그 밖의 상태면 `conflict` 409
+- 다른 매장 · 없는 캠페인이면 `not_found` 404
+- 즉시 발송 · 예약 발송은 검토 기록이 없으면 `review_required` 409다 (1절). 동의 재확인 안내 캠페인도 같다. 수신 거부 처리 안내는 캠페인 없이 나가므로 해당 없다 (FR-CMP-11)
+- 검토한 문구가 바뀌지 않도록 발송 전 캠페인이 쓰는 템플릿은 수정할 수 없다 (`PATCH /api/message-templates/{templateId}`, F43)
 
 **`GET /api/virtual-phone/messages?phone=`** 가상 수신함 (FR-CMP-16). `CAMPAIGN_SEND`. 세션 매장이 그 번호로 보낸 메시지 중 받은 것(`SENT`)만, 받은 시각 최신순 (F26). 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없다 (명세서 5장).
 
