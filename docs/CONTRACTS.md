@@ -480,6 +480,17 @@
 - 단골 · 세그먼트 같은 라벨은 두지 않는다 (C15)
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
+**`GET /api/customers/{customerId}/reservations`** 고객의 예약 목록 (FR-CUS-03). `RESERVATION`. 고객 상세 화면이 공용이어도 이 영역은 "예약 등록 · 수정" 설정을 따른다 (명세서 2장). 상태와 관계없이 모두 넣고, 시작 시각이 늦은 순(같으면 ID가 큰 순)이다.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+응답은 3절 페이지 응답이고, 항목 필드는 `GET /api/reservations`의 「예약 필드」와 같다 (`id` · `status` · `startAt` · `minutes` · `staff` · `consultFirst` · `channel` · `customer` · `services`).
+
+- 다른 매장 · 없는 · 삭제된 고객이면 `not_found` 404
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
+
 **`GET /api/customers/{customerId}/predictions`** 카테고리별 예측 (FR-PRD-02 · 03 · 04, FR-CUS-03). `INSIGHT`. 고객 상세 화면이 공용이어도 이 영역은 "인사이트" 설정을 따른다 (A3 보완). 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 예측도 지운다, FR-CUS-10).
 
 | 응답 필드 | 타입 | 설명 |
