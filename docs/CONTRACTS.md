@@ -1026,3 +1026,24 @@
 
 - 정렬: 날짜순, 같은 날은 매장 휴무 먼저
 - 스탭 정기 휴무 요일은 여기 넣지 않는다 (`GET /api/staff?includeInactive=true`의 `regularDaysOff`)
+
+**`POST /api/day-offs`** 휴무일 등록 (FR-SET-07, C7). `OWNER_PIN`. 성공하면 `201`.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `date` | string | 예 | 날짜(3절). 오늘(Asia/Seoul) 이후. 지난 날짜면 `invalid` 400 (F32) |
+| `staffId` | number \| null | 아니요 | 스탭 휴무면 스탭 ID, 빼거나 `null`이면 매장 휴무. 다른 매장 · 없는 스탭이면 `not_found` 404, 비활성 스탭이면 `invalid` 400 (FR-ACC-04, F32) |
+| `reason` | string \| null | 아니요 | 사유. 100자 이하, 앞뒤 공백을 빼고 빈 값이면 `null`로 저장 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 휴무일 ID |
+| `pushedReservations` | object[] | 그날(지금 이후) 걸리는 확정 예약, 시작 시각순. 매장 휴무면 모든 스탭의, 스탭 휴무면 그 스탭의 예약. `PATCH /api/staff/{staffId}`의 `pushedReservations`와 같은 모양 `{ "id": number, "startAt": string, "customerName": string \| null }`. 자동 취소하지 않는다 (F12). 없으면 빈 배열 |
+
+- 같은 날 같은 대상(매장, 또는 같은 스탭)의 휴무가 이미 있으면 `duplicate` 409 (F32). 매장 휴무가 있는 날에 스탭 휴무를 따로 넣는 것은 허용
+- 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유
+- 등록한 날은 예약 가능 시간에서 빠진다 (FR-RSV-04)
+
+**`DELETE /api/day-offs/{dayOffId}`** 휴무일 삭제 (FR-SET-07). `OWNER_PIN`. 본문 없음, 성공하면 `204`. 그날 다시 예약할 수 있다.
+
+- 다른 매장 · 없는 휴무일이면 `not_found` 404
