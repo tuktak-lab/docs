@@ -678,6 +678,15 @@
 - 다른 매장 · 삭제된 고객이면 `not_found` 404. 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유가 들어간다
 - 그 고객에 대한 수정으로 접근 로그에 남긴다 (NFR-06)
 
+**`POST /api/visits/{visitId}/photos`** 시술 사진 업로드 (FR-CUS-08, C4). `CUSTOMER_WRITE`. `multipart/form-data`의 칸 `file`에 사진 한 장을 보낸다. 성공하면 `201`과 `{ "id": number }`(사진 ID). 마감 카드에서는 마감 저장 응답의 방문 ID로 사진마다 부른다 (F9).
+
+- 형식은 파일 앞 바이트로 판단해 JPG · PNG만 받는다. 파일 이름 · `Content-Type`은 보지 않는다 (NFR-08). 그 밖의 형식 · 빈 파일 · 10MB 초과 · 그 방문의 11번째 사진은 `invalid` 400이고 `details`에 `field: "file"`
+- 그 방문 고객의 사진 동의(`PHOTO`) 최신 행이 동의가 아니면 `consent_required` 409
+- 고객 없음으로 마감한 방문이면 `conflict` 409 (FR-PAY-04, E3)
+- 다른 매장 · 없는 방문, 삭제된 고객의 방문이면 `not_found` 404
+- 파일은 서버가 만든 무작위 키로 비공개 저장소에 둔다 (F16). 저장소에 먼저 쓰고, DB가 롤백되면 그 파일을 지운다. 사진 동의 철회(`POST /api/customers/{customerId}/consents`)와 같은 고객 행 잠금으로 차례를 정해 철회 뒤에 사진이 남지 않게 한다
+- 그 방문 고객에 대한 수정으로 접근 로그에 남긴다 (NFR-06)
+
 **`GET /api/photos/{photoId}/file?expires=&signature=`** 사진 파일 (NFR-07, F16). 권한은 기능 키 대신 매장 로그인 + 서명 URL이다. URL은 사진을 보여 주는 API(시술 히스토리북 등)가 권한 · 사진 동의를 확인한 뒤 만들어 응답에 담고, 화면은 그 URL을 그대로 `<img src>`에 쓴다.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
