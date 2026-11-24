@@ -32,6 +32,7 @@
 | 전송 | 전 구간 HTTPS | [확정] | NFR-05 |
 | 로컬·테스트 DB | Docker Compose로 띄운 MySQL 8 (그래빗과 같은 방식). CI는 MySQL 서비스 컨테이너 | [제안] | — |
 | Node.js 버전 | 24 (`package.json` `engines`·`.nvmrc`로 고정, Keepsy #119) | [확정] 2026-11-23 | — |
+| Next.js · React 버전 | Next.js 16.4.6 (App Router, Turbopack) · React 19.3.1 · TypeScript 5.9.3. 전환할 때 npm 안정판으로 정함. App Router는 React 19가 필요하다 | [확정] 개발 저장소 프론트 전환 (2026-11-24, Keepsy #119) | A14 |
 | 백엔드 포매터 | Spotless + google-java-format AOSP 스타일(4칸). `spotlessCheck`는 Gradle `check`에 포함되어 CI `./gradlew build`에서 함께 돈다 | [확정] | 결정체크리스트 F18 |
 | 실행 환경 | 배포하지 않고 로컬에서 실행·시연. HTTPS(NFR-05)·백업(NFR-10)은 실제 운영을 전제로 한 설계로만 둠 | [확정] | A14 추가 결정 |
 
@@ -167,6 +168,7 @@ frontend/
 | `/virtual-phone` | 가상 휴대폰 | `CAMPAIGN_SEND` | FR-CMP-11·16 |
 | `/analytics` | 성과 분석 (캠페인 전환 퍼널·연결 매출·대조군 비교, 매출·주기 내 재방문율·예측 정확도) | `SALES_ANALYTICS` (영역별 `CAMPAIGN_VIEW`) | FR-ANL-01·02·05~07·09 |
 | `/settings` | 매장 설정 (탭: 매장 정보·영업시간, 시술 메뉴, 휴무일, 예측 기준, 발송, 보관 기간, 스탭·PIN·기능 잠금) | `OWNER_PIN` (원장 PIN 재설정 FR-ACC-09는 원장 PIN 없이 매장 계정 비밀번호로, `docs/CONTRACTS.md` 「4」 `PUT /api/owner-pin`) | FR-SET-01~07, FR-ACC-03~05·09 |
+| `/design-system` | 디자인 시스템 (개발용. 메뉴에 없음, 나중에 쓸 수 있어 유지, 2026-11-23 결정) | — | — |
 
 ## 5. 데이터
 
