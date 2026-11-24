@@ -539,6 +539,17 @@
 - 다른 매장 · 삭제된 고객이면 `not_found` 404
 - 수정은 접근 로그에 남긴다. 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자로 기록한다 (NFR-06, ARCHITECTURE 6장 「기록에 남는 사람」)
 
+**`PUT /api/customers/{customerId}/cautions`** 시술 · 건강 주의사항 (FR-CUS-05, D7). `CUSTOMER_WRITE`. 성공하면 `204`. 두 칸을 통째로 보내고, null · 빈 문자열 · 공백만이면 그 칸을 지운다. 앞뒤 공백은 뺀다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `serviceCaution` | string \| null | 아니오 | 시술 주의사항. 1,000자 이하 |
+| `healthCaution` | string \| null | 아니오 | 건강 주의사항. 1,000자 이하. 건강 정보 동의(`HEALTH`)의 현재 상태가 동의일 때만 넣을 수 있다 |
+
+- 건강 정보 동의를 받은 적 없거나 철회한 고객에 `healthCaution` 값을 보내면 `consent_required` 409이고 두 칸 모두 바뀌지 않는다. 지우기(null)는 동의 없이도 된다
+- 다른 매장 · 삭제된 고객이면 `not_found` 404, 1,000자를 넘으면 `invalid` 400
+- 수정은 접근 로그에 남긴다 (NFR-06)
+
 **`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
 
 | 응답 필드 | 타입 | 설명 |
