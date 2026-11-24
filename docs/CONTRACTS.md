@@ -557,6 +557,27 @@
 - 다른 매장 · 삭제된 고객이면 `not_found` 404, 1,000자를 넘으면 `invalid` 400
 - 수정은 접근 로그에 남긴다 (NFR-06)
 
+**`PUT /api/customers/{customerId}/preferences`** 취향 태그 · 자유 메모 (FR-CUS-04). `CUSTOMER_WRITE`. 성공하면 `204`. 태그 목록과 메모를 통째로 보낸다 (빈 목록이면 태그를 모두 지운다).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `tags` | object[] | 예 | `{ "category", "tag" }`, 50개까지. 고객 상세 `preferenceTags`와 같은 모양 |
+| `tags[].category` | string | 예 | 3절 「시술 카테고리」 |
+| `tags[].tag` | string | 예 | 앞뒤 공백을 뺀 1~50자. 같은 카테고리에 대소문자만 다른 태그가 여럿이면 처음 것만 남긴다 |
+| `memo` | string \| null | 아니오 | 취향 자유 메모, 1,000자 이하. null · 빈 문자열 · 공백만이면 지운다 |
+
+- 다른 매장 · 삭제된 고객이면 `not_found` 404, 칸 규칙을 어기면 `invalid` 400
+
+**`GET /api/preference-tags?category=`** 매장에서 쓴 취향 태그 (FR-CUS-04, F3). `CUSTOMER_VIEW`. 세션 매장 고객들의 태그를 그 카테고리 안에서 중복 없이 이름 순으로 준다. 페이징 없음.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `category` | string | 예 | 3절 「시술 카테고리」. 없거나 값이 아니면 `invalid` 400 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `tags` | string[] | 태그 이름. 없으면 빈 배열 |
+
 **`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
 
 | 응답 필드 | 타입 | 설명 |
