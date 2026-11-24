@@ -696,6 +696,7 @@
 | `staff` | object \| null | 처리 스탭 `{ "id", "name" }`. 가상 휴대폰 [수신거부]처럼 스탭 없이 들어온 철회면 null |
 | `method` | string \| null | 3절 「동의 방법」. 스탭 없이 들어온 철회면 null |
 | `withdrawalPath` | string \| null | 3절 「철회 경로」. 철회 행에만 있고 동의 행은 null |
+| `correctsConsentId` | number \| null | 정정 행이면 고친 이력 행 ID, 아니면 null (결정 F44). 정정 행의 `recordedAt`은 처리 시각이 아니라 효력 일시다 |
 
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
@@ -713,6 +714,19 @@
 - 건강 주의사항 저장(`PUT /api/customers/{customerId}/cautions`)과 `HEALTH` 철회는 같은 고객 행 잠금으로 차례를 정해, 철회 뒤에 건강 주의사항이 남지 않게 한다
 - 수신 거부 처리 안내 자동 발송(FR-CMP-11)은 이 API가 아니라 수신 거부 반영 기능이 맡는다
 - 다른 매장 · 삭제된 고객이면 `not_found` 404. 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유가 들어간다
+- 그 고객에 대한 수정으로 접근 로그에 남긴다 (NFR-06)
+
+**`POST /api/consents/{consentId}/corrections`** 잘못 입력한 동의 정정 (FR-CUS-09, E8, 결정 F44). `CUSTOMER_EDIT`(기본 PIN). 성공하면 `201`과 `{ "id": number }`(정정 행 ID). 처리 스탭은 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자다 (ARCHITECTURE 6장).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `agreed` | boolean | 예 | 올바른 동의 여부. 고칠 행과 같은 값이면 `invalid` 400 |
+
+- 원래 행은 고치지 않고 새 이력 행을 쌓는다. 새 행의 `correctsConsentId`가 고친 행이다
+- 그 고객 · 항목의 최신 행만 고칠 수 있다. 아니면 `conflict` 409. `PRIVACY`는 고칠 수 없다: `invalid` 400 (F42)
+- 새 행의 일시 · 동의 방법 · 철회 경로: 고친 행 바로 앞 행이 `agreed`와 같으면 그 행의 값을 되살리고, 아니면 고친 행의 일시 · 동의 방법을 쓰고 철회 경로는 비운다("받은 적 없음", F19). 그래서 정정이 재확인 주기(D1)를 처리 시각으로 다시 시작하지 않는다
+- 정정으로 `PHOTO` · `HEALTH`가 꺼지면 철회와 같이 사진 · 건강 주의사항을 지운다. `MARKETING`이 꺼지면 그 뒤의 대상 계산 · 발송 재검사에서 바로 빠진다. 동의 받기 · 철회와 같은 고객 행 잠금을 쓴다
+- 다른 매장 · 없는 동의 이력, 삭제된 고객이면 `not_found` 404
 - 그 고객에 대한 수정으로 접근 로그에 남긴다 (NFR-06)
 
 **`POST /api/visits/{visitId}/photos`** 시술 사진 업로드 (FR-CUS-08, C4). `CUSTOMER_WRITE`. `multipart/form-data`의 칸 `file`에 사진 한 장을 보낸다. 성공하면 `201`과 `{ "id": number }`(사진 ID). 마감 카드에서는 마감 저장 응답의 방문 ID로 사진마다 부른다 (F9).
@@ -778,6 +792,35 @@
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
+
+**`GET /api/customers/{customerId}/deletion-preview`** 삭제 전 확인 (FR-CUS-10, C12). `OWNER_PIN`. 다른 매장 · 삭제된 고객이면 `not_found` 404.
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `cancelReservationCount` | number | 삭제하면 자동 취소될 확정 예약 수. 시작 시각과 관계없이, 마감 안 된 지난 예약도 센다 |
+
+**`DELETE /api/customers/{customerId}`** 고객 삭제(파기) (FR-CUS-10 · 12, C12). `OWNER_PIN`. 본문 없음, 성공하면 `204`. 화면은 삭제 전 확인을 보인 뒤 부른다. 한 트랜잭션으로 처리한다.
+
+- 고객 행은 남기고 이름 · 휴대폰 · 성별 · 출생 연도 · 선호 언어 · 시술/건강 주의사항 · 취향 메모 · 예약 제한 사유를 비운 뒤 상태를 `DELETED`로 바꾼다
+- 상담 메모 · 취향 태그 · 동의 이력 · 사진(저장소 파일은 커밋 뒤) · 현재 예측을 지운다. 예측 스냅샷 · 결제 · 방문 · 시술 항목은 남긴다
+- 캠페인 메시지의 수신 번호 · 치환 본문과 예약 메모를 비우고, 남아 있는 확정 예약을 모두 취소한다
+- 같은 번호로 다시 등록하면 예전 기록과 잇지 않고 새 고객이 된다 (C12 보완)
+- 다른 매장 · 이미 삭제된 고객이면 `not_found` 404
+- 삭제로 접근 로그에 남긴다 (NFR-06, 백업 복구 뒤 다시 삭제할 기준)
+
+**`GET /api/customers/retention-expired`** 파기 대상 목록 (FR-CUS-12, D3, B6). `OWNER_PIN`. 기준일 + 보관 기간(매장 설정 `retentionYears`, FR-SET-06)이 오늘(Asia/Seoul)보다 이전인 정상 고객을 기준일이 오래된 순으로 준다. 삭제는 `DELETE /api/customers/{customerId}`로 한다.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID |
+| `name` | string | 고객 이름 |
+| `phone` | string | 마스킹한 번호 `010-****-1234` (NFR-04) |
+| `baseDate` | string | 기준일 |
+| `baseKind` | string | 기준일의 종류: `VISIT`(마지막 방문일) · `RESERVATION`(방문이 없으면 상태와 상관없이 마지막 예약 시작일) · `REGISTERED`(예약도 없으면 등록일) |
 
 ### 예약 (RSV)
 
@@ -1070,12 +1113,102 @@
 - 대조군: 제외 후 대상 수 × `controlPercent` ÷ 100을 내림한 인원을 무작위로 고른다. 예: 100명 · 10%면 대조군 10명, 발송 대상 90명. 대조군은 발송하지 않고, 발송을 시작할 때 대조군 행으로 기록된다 (F7)
 - 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유가 들어간다
 
+**`GET /api/campaigns`** 캠페인 목록 (FR-CMP-10). `CAMPAIGN_VIEW`. 최근 만든 순(ID 내림차순).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 캠페인 ID |
+| `name` | string | 이름 |
+| `category` | string \| null | 3절 「시술 카테고리」. 동의 재확인 안내면 null (E7) |
+| `messageKind` | string | 3절 「캠페인 메시지 종류」 |
+| `status` | string | 3절 「캠페인 상태」 |
+| `targetCount` | number | 만들 때 고른 대상 고객 수 (대조군 포함, F41) |
+| `controlCount` | number | 대조군 고객 수 |
+| `scheduledAt` | string \| null | 예약 발송 시각 |
+| `sentAt` | string \| null | 발송 시작 시각 |
+| `cancelReason` | string \| null | 3절 「캠페인 취소 사유」 |
+
+**`GET /api/campaigns/{campaignId}`** 캠페인 상세 · 고객별 발송 결과 (FR-CMP-10 · 18). `CAMPAIGN_VIEW`. 다른 매장 · 없는 캠페인이면 `not_found` 404.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 고객별 결과(`messages`)의 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| 목록 항목 필드 | | `GET /api/campaigns` 항목 필드 전부 |
+| `templateId` | number | 템플릿 ID |
+| `controlPercent` | number | 대조군 비율 % |
+| `reviewedBy` | object \| null | 검토 스탭 `{ "id", "name" }` (FR-CMP-06) |
+| `reviewedAt` | string \| null | 검토 시각 |
+| `canceledAt` | string \| null | 취소 시각 |
+| `messages` | object | 고객별 발송 결과의 1절 페이지 응답, 고객 ID 순. 발송을 시작하기 전에는 빈 페이지다 (F7) |
+
+| `messages` 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID |
+| `customerName` | string \| null | 고객 이름. 삭제된 고객이면 null |
+| `customerDeleted` | boolean | 삭제된 고객이면 true, 화면은 "삭제된 고객"으로 보인다 (FR-CUS-10) |
+| `phone` | string \| null | 마스킹한 수신 번호 `010-****-1234` (NFR-04). 삭제된 고객이면 null (C12) |
+| `controlGroup` | boolean | 대조군 여부 (FR-CMP-18) |
+| `sendStatus` | string \| null | 3절 「발송 상태」. 대조군 행이면 null |
+| `failureReason` | string \| null | 실패 사유 (FR-CMP-10) |
+| `resultAt` | string \| null | 발송 결과 시각 |
+
+**`GET /api/campaigns/{campaignId}/preview`** 캠페인 미리보기 (FR-CMP-05 · 18, B3, 결정 F46). `CAMPAIGN_SEND`. 다른 매장 · 없는 캠페인이면 `not_found` 404. 저장하지 않고 부를 때마다 다시 치환한다. 발송할 때도 다시 치환해 바이트 제한을 다시 검사한다 (F46).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 고객별 결과(`items`)의 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `sendCount` | number | 발송 인원: 대상 중 대조군이 아닌 고객 수 (F41) |
+| `controlCount` | number | 대조군 인원 (FR-CMP-18) |
+| `estimatedCost` | number | 예상 비용(원) = `sendCount` × 매장 가상 단가(기본 0원, B3) |
+| `unsendableCount` | number | 발송할 수 없는 고객 수 (2,000바이트 초과 · 변수 값 없음) |
+| `items` | object | 발송 인원의 고객별 결과, 1절 페이지 응답, 고객 ID 순 |
+
+| `items` 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID |
+| `customerName` | string \| null | 고객 이름. 삭제된 고객이면 null |
+| `text` | string \| null | 변수를 치환하고 광고 표기까지 붙인 최종 본문 (FR-CMP-04). 값을 구할 수 없는 변수가 있으면 null |
+| `bytes` | number \| null | `text`의 바이트 수 (FR-CMP-05). `text`가 null이면 null |
+| `messageType` | string \| null | 3절 「메시지 유형」. null이면 발송 불가 (2,000바이트 초과 또는 변수 값 없음) |
+| `missingVariables` | string[] | 값을 구할 수 없는 변수 이름 (예: `["최근시술"]`). 보통 빈 배열 |
+
+- 변수 표기는 결정 F46을 따른다. 화면은 본문을 이스케이프해서 보인다 (NFR-08)
+
 **`POST /api/campaigns/{campaignId}/review`** 검토 체크 (FR-CMP-06 · 13). `CAMPAIGN_SEND`. 본문 없음, 성공하면 `204`. 검토자와 검토 시각을 캠페인에 기록한다. 검토자는 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자다 (ARCHITECTURE 6장 「기록에 남는 사람」).
 
 - 작성 중(`DRAFT`) 캠페인만 된다. 다시 체크하면 검토자 · 시각을 새로 쓴다. 그 밖의 상태면 `conflict` 409
 - 다른 매장 · 없는 캠페인이면 `not_found` 404
 - 즉시 발송 · 예약 발송은 검토 기록이 없으면 `review_required` 409다 (1절). 동의 재확인 안내 캠페인도 같다. 수신 거부 처리 안내는 캠페인 없이 나가므로 해당 없다 (FR-CMP-11)
 - 검토한 문구가 바뀌지 않도록 발송 전 캠페인이 쓰는 템플릿은 수정할 수 없다 (`PATCH /api/message-templates/{templateId}`, F43)
+
+**`GET /api/consent-reconfirm-targets`** 동의 재확인 대상 (FR-CMP-13, D1, 결정 F45). `CAMPAIGN_VIEW`. 마케팅 동의 최신 행이 동의인 정상 고객 중 오늘(Asia/Seoul)이 재확인 기한 − 30일 이후인 고객을 기한이 이른 순으로 준다. 기한이 지나도 재확인 안내 발송에 성공할 때까지 남는다. 이 목록에서 고른 고객으로 동의 재확인 안내 캠페인을 만든다 (`POST /api/campaigns`, `CONSENT_RECONFIRM` 템플릿).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID |
+| `name` | string | 고객 이름 |
+| `phone` | string | 마스킹한 번호 `010-****-1234` (NFR-04) |
+| `consentDate` | string | 유효 마케팅 동의일: 최신 동의 행의 일시(정정 행이면 효력 일시, F44)의 날짜 |
+| `lastReconfirmedAt` | string \| null | 마지막 동의 재확인 안내 발송 성공(`SENT`) 시각. 없으면 null |
+| `dueDate` | string | 재확인 기한 = 기준일(`consentDate`와 `lastReconfirmedAt`의 날짜 중 늦은 날) + 2년 |
+| `nightAdConsent` | boolean | 야간 광고 동의 최신 행이 동의인지. 대상 조건이 아니라 함께 보여 주는 정보다 |
+
+- 발송 성공만 기준일을 갱신한다. 대기 · 실패 · 대조군 · 취소된 안내는 갱신하지 않는다 (F45)
+- 안내 캠페인의 대상 선정과 발송 시점에 마케팅 동의를 다시 확인한다 (F7)
 
 **`GET /api/virtual-phone/messages?phone=`** 가상 수신함 (FR-CMP-16). `CAMPAIGN_SEND`. 세션 매장이 그 번호로 보낸 메시지 중 받은 것(`SENT`)만, 받은 시각 최신순 (F26). 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없다 (명세서 5장).
 
