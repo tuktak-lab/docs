@@ -962,6 +962,32 @@
 
 - 정렬: 카테고리(3절 순서), 그다음 등록 순(ID)
 
+**`POST /api/service-menus`** 시술 메뉴 추가 (FR-SET-02). `OWNER_PIN`. 성공하면 `201`과 `{ "id": number }`.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `category` | string | 예 | 시술 카테고리(3절) |
+| `name` | string | 예 | 1~100자, 앞뒤 공백을 빼고 저장 |
+| `price` | number | 예 | 가격(원), 0 이상 정수 |
+| `durationMinutes` | number | 예 | 소요 시간(분). 30 이상이고 30의 배수 (예: 90 = 1시간 30분) |
+| `cycleMinDays` | number | 예 | 기본 주기 최소(일). `1 ≤ cycleMinDays ≤ cycleMaxDays` (카테고리 기본 주기와 같은 규칙) |
+| `cycleMaxDays` | number | 예 | 기본 주기 최대(일) |
+| `predictionAttribute` | string | 아니요 | 메뉴 예측 속성(3절) `NORMAL` `EXCLUDE` `END_SIGNAL` (E5). 기본 `NORMAL` |
+
+- 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유
+- 새 메뉴는 받은 고객이 없으므로 예측을 다시 계산하지 않는다
+
+**`PATCH /api/service-menus/{menuId}`** 시술 메뉴 수정 (FR-SET-02, FR-VIS-05). `OWNER_PIN`. 보낸 칸만 바꾼다 (F31). 성공하면 `204`.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` · `price` · `durationMinutes` · `cycleMinDays` · `cycleMaxDays` · `predictionAttribute` | 추가와 같음 | 아니요 | 추가와 같은 규칙. 최소 ≤ 최대는 바꾼 뒤 값으로 검사한다 |
+
+- `category`를 보내면 `invalid` 400. 카테고리는 바꿀 수 없고 다른 카테고리는 새 메뉴로 추가한다 (F31)
+- 기본 주기(`cycleMinDays` · `cycleMaxDays`)나 `predictionAttribute`가 실제로 바뀌면 그 메뉴를 받은 고객 전체의 예측을 같은 트랜잭션에서 다시 계산한다. 이름 · 가격 · 소요 시간만 바뀌면 다시 계산하지 않는다 (FR-SET-02, FR-PRD-01)
+- 방문 화면의 "앞으로 ○○ 메뉴를 모두 주기 계산에서 제외"(FR-VIS-05)는 `{ "predictionAttribute": "EXCLUDE" }`만 보낸다
+- 다른 매장 · 없는 메뉴면 `not_found` 404
+
 **`GET /api/category-cycles`** 카테고리 기본 주기 (FR-SET-02, C16). `OWNER_PIN`. 메뉴 없는 가져온 방문의 예측에 쓴다 (E5).
 
 | 응답 필드 (배열의 원소) | 타입 | 설명 |
