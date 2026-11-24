@@ -970,6 +970,19 @@
 - 수신 거부 · 미동의는 마케팅 동의 최신 행으로 판정한다 (철회 경로 `UNSUBSCRIBE`면 수신 거부, 받은 적 없음 · 미동의 · 직접 철회는 미동의)
 - 재발송 제한은 광고에만 적용하고, 매장 설정 기간(FR-SET-04, 기본 7일) 안에 발송 성공한 광고 메시지가 있으면 제외한다. 실패 · 대조군 행은 세지 않는다. 동의 재확인 안내에는 적용하지 않는다 (FR-CMP-13)
 
+**`POST /api/campaigns`** 캠페인 만들기 (FR-CMP-01 · 03 · 18, 결정 F41). `CAMPAIGN_SEND`. 성공하면 `201`과 `{ "id": number }`. 상태는 `DRAFT`(작성 중)다. 메시지 종류는 템플릿 용도로 정해진다: `CONSENT_RECONFIRM` 템플릿이면 `INFO`(동의 재확인 안내), 나머지는 `AD`(광고).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` | string | 예 | 1~100자 |
+| `templateId` | number | 예 | 세션 매장 템플릿. 다른 매장 · 없는 템플릿이면 `not_found` 404 |
+| `controlPercent` | number | 아니오 | 대조군 비율 %, 기본 0. 0~50 (명세서에 상한이 없어 정한 제안값). 안내 캠페인은 0만 된다 (F41) |
+
+- 대상 칸(`category` · `customerIds` · `visitCountMin` · `visitCountMax` · `predictionStatus` · `lastServiceFrom` · `lastServiceTo`)은 `POST /api/campaigns/targets`와 같은 규칙이다. `kind`는 받지 않고 템플릿 용도로 정한다
+- 만들 때 대상을 다시 고르고(미리 계산 뒤 바뀐 동의 · 발송 기록을 반영) `campaign_target`에 저장한다. 제외 후 대상이 0명이면 `invalid` 400
+- 대조군: 제외 후 대상 수 × `controlPercent` ÷ 100을 내림한 인원을 무작위로 고른다. 예: 100명 · 10%면 대조군 10명, 발송 대상 90명. 대조군은 발송하지 않고, 발송을 시작할 때 대조군 행으로 기록된다 (F7)
+- 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유가 들어간다
+
 **`GET /api/virtual-phone/messages?phone=`** 가상 수신함 (FR-CMP-16). `CAMPAIGN_SEND`. 세션 매장이 그 번호로 보낸 메시지 중 받은 것(`SENT`)만, 받은 시각 최신순 (F26). 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없다 (명세서 5장).
 
 | 쿼리 | 타입 | 필수 | 규칙 |
