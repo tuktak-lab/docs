@@ -961,6 +961,20 @@
 - 캠페인이 없거나 다른 매장 것이면 `not_found` 404 (NFR-03)
 - 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
 
+**`GET /api/campaigns/{campaignId}/control-comparison`** 대조군 비교 (FR-ANL-09, E2). `CAMPAIGN_VIEW`. 집단과 재예약 기준은 결정 F36. 모든 값은 **고객 수**이고, 재예약률은 화면이 나눠 계산한다. 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E2, E9). 주기 내 재방문율은 아직 응답에 없다: 발송 시각 기준 예측의 이탈 신호 기간이 저장되지 않아(F24와 같은 이유) 스키마 결정 뒤 이 응답에 더한다 (F36).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `reachedCount` | number | 발송군: 대조군이 아닌 발송 대상 중 발송 성공(`SENT`) 고객 수. 퍼널의 `reachedCount`와 같다. 대기 · 실패 고객은 받지 않았으므로 어느 집단에도 넣지 않는다 (F36) |
+| `rebookedCount` | number | 발송군 재예약: 이 캠페인 발송이 귀속된 같은 카테고리 예약 시술이 하나라도 있는 고객 수. 퍼널의 `rebookedCount`와 같다 (A8, E7, FR-ANL-03) |
+| `controlCount` | number | 대조군 고객 수 (FR-CMP-18). 0이면 대조군이 없는 캠페인(대조군 비율 0%이거나 뽑힌 고객 없음)이라 비교 대상이 아니고, 화면은 비율 대신 비교 대상이 아님을 보인다 |
+| `controlRebookedCount` | number | 대조군 재예약: 캠페인 발송 시각(`sent_at`) 이후 생성됐고 생성일이 발송일 + 귀속 기간(조회할 때의 매장 설정, FR-SET-04) 이내인 예약 중, 캠페인과 같은 카테고리 예정 시술이 있는 예약을 가진 대조군 고객 수. 기간을 날짜로 세는 방식은 귀속 판정과 같다 (A8). 예약이 나중에 취소 · 노쇼돼도 센다 (퍼널 재예약과 같음, FR-ANL-01). 귀속을 보지 않으므로 다른 캠페인에 귀속된 예약도 든다 |
+
+- 재예약률은 발송군 `rebookedCount ÷ reachedCount`, 대조군 `controlRebookedCount ÷ controlCount`다. 분모가 0이면 그 비율을 보이지 않는다
+- 삭제된 고객도 그대로 센다 (C12). 아직 발송하지 않은 캠페인은 대조군 행이 없어(ARCHITECTURE 7장, 발송을 시작할 때 만든다) 모두 0이다
+- 캠페인이 없거나 다른 매장 것이면 `not_found` 404 (NFR-03)
+- 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
+
 **`GET /api/campaigns/{campaignId}/revenue`** 캠페인 연결 매출 (FR-ANL-02). `SALES_ANALYTICS`. 귀속 판정은 퍼널과 같다 (발송 성공 광고 메시지 · 같은 카테고리, A8 · E7 · F33). 재예약 여부로 좁히지 않고 저장된 방문 귀속을 그대로 쓴다 (F35는 퍼널에만 적용). 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9).
 
 | 응답 필드 | 타입 | 설명 |
@@ -1029,6 +1043,21 @@
 | `counts` | object | 시작 시각이 그 날인 예약을 예약 상태(3절)마다 센 건수, 0건 포함: `{ "CONFIRMED": number, "COMPLETED": number, "CANCELED": number, "NO_SHOW": number }`. 어떤 상태를 합쳐 "예약 건수"로 보일지는 화면이 고른다 |
 
 - 다른 매장 예약은 나오지 않는다 (NFR-03)
+
+**`GET /api/dashboard/recent-campaigns`** 최근 캠페인 성과 (FR-DSH-04, P2). `CAMPAIGN_VIEW`: 대시보드 자체는 `DASHBOARD_SEARCH`지만 이 영역은 "캠페인 목록 · 결과 조회" 설정을 따른다 (명세서 2장). 대상은 결정 F36: 발송 시각이 있는(발송을 시작한) 광고 캠페인을 발송 시각 최신순으로 최대 3개, 같은 시각이면 ID가 큰 것 먼저. 아직 발송하지 않은 캠페인과 동의 재확인 안내 캠페인(카테고리가 없어 재예약이 늘 0, E7)은 뺀다. 페이징 없음. 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9).
+
+| 응답 필드 (배열의 원소) | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 캠페인 ID. 누르면 캠페인 결과(`/campaigns/detail?id=`)로 간다 |
+| `name` | string | 캠페인 이름 |
+| `category` | string | 시술 카테고리(3절) |
+| `sentAt` | string | 발송 시각(3절 시각 형식) |
+| `reachedCount` | number | 도달 고객 수. `GET /api/campaigns/{campaignId}/funnel`의 `reachedCount`와 같다 |
+| `rebookedCount` | number | 재예약 고객 수. 퍼널의 `rebookedCount`와 같다 (F35) |
+
+- 재예약 전환율은 화면이 `rebookedCount ÷ reachedCount`로 계산한다 (퍼널 · 기획서 4장과 같음). `reachedCount`가 0이면 전환율을 보이지 않는다
+- 발송한 캠페인이 없으면 빈 배열. 다른 매장 캠페인은 나오지 않는다 (NFR-03)
+- "캠페인 목록 · 결과 조회"가 PIN으로 잠겨 있고(기본) 인증이 없으면 `pin_required` 403. 화면은 이 영역을 가려 두었다가 PIN 인증 뒤 다시 요청한다 (FR-DSH-04)
 
 **`GET /api/dashboard/booking-channels`** 예약 경로 통계 (FR-DSH-06, P2). 기능 키 `DASHBOARD_SEARCH`. 대상은 결정 F27: 시작일(Asia/Seoul, NFR-12)이 기간 안인 예약을 상태와 관계없이(취소 · 노쇼 포함) 모두 세고, 고객 없는 예약도 넣는다 (E3). 화면은 결과를 시드 데이터 비율로 밝힌다 (FR-DSH-06).
 
