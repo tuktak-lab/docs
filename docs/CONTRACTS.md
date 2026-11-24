@@ -640,6 +640,29 @@
 
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
+**`GET /api/customers/{customerId}/messages`** 수신 이력 · 캠페인 연결 기록 (FR-CUS-03, FR-ANL-04). `CAMPAIGN_VIEW`. 고객 상세 화면이 공용이어도 이 영역은 "캠페인 목록·결과 조회" 설정을 따른다 (명세서 2장). 다른 매장 · 삭제된 고객이면 `not_found` 404. 그 고객이 **받은** 메시지(발송 성공 `SENT`)만, 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없이 받은 시각 최신순으로 준다. 대기 · 실패 · 대조군 행은 넣지 않는다 (결정 F37). 결제 금액은 `GET /api/customers/{customerId}/payments`다.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+응답은 3절 페이지 응답이다.
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `messageId` | number | 발송 기록 ID (귀속 발송 ID, F15) |
+| `kind` | string | 3절 「발송 메시지 종류」 |
+| `receivedAt` | string | 받은 시각(3절, 발송 결과 시각) |
+| `campaign` | object \| null | `{ "id": number, "name": string }`. 수신 거부 처리 안내면 null (FR-CMP-11) |
+| `category` | string \| null | 3절 「시술 카테고리」. 광고 캠페인의 카테고리이고, 수신 거부 처리 안내 · 동의 재확인 안내면 null (E7) |
+| `reservations` | object[] | 이 발송이 귀속된 예약 `{ "id": number, "startAt": string, "status": string }`, 시작 시각 순. 예약이 나중에 취소 · 노쇼돼도 남고 `status`로 보인다 (FR-ANL-01). 다음 예약이 같은 발송을 이어받으면 둘 다 나온다 (FR-VIS-04). 없으면 빈 배열 |
+| `visits` | object[] | 이 발송이 귀속된 방문 `{ "id": number, "visitDate": string }`, 방문일 순. 없으면 빈 배열 |
+
+- 귀속 판정은 퍼널(`GET /api/campaigns/{campaignId}/funnel`)과 같다: 예약 시술 · 방문 시술의 귀속 발송 ID(F15)가 이 광고 메시지이고 그 시술이 같은 카테고리인 것 (A8, E7). 귀속된 예약에서 생긴 방문은 방문일이 귀속 기간 밖이어도 나온다 (F33). CSV로 가져온 방문은 빠진다 (FR-CUS-13). 재예약 고객으로 좁히지 않는다 (F35는 퍼널에만). 안내 메시지는 카테고리가 없어 두 배열이 늘 비어 있다
+- 수신 번호 · 본문은 넣지 않는다. 결제 금액(`SALES_ANALYTICS`)은 이 응답에 넣지 않는다 (명세서 2장)
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
+- 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
+
 **`GET /api/customers/{customerId}/payments`** 결제 금액 이력 (FR-ANL-04). `SALES_ANALYTICS`. 고객 상세 화면이 공용이어도 이 영역은 "매출·성과 분석 조회" 설정을 따른다 (명세서 2장). 다른 매장 · 삭제된 고객이면 `not_found` 404. 정렬은 결제 시각 최신순. 취소된 결제도 이력으로 남아 있으므로 빼지 않고 `canceled`로 표시한다 (명세서 5장 payment, F8).
 
 | 쿼리 | 타입 | 필수 | 규칙 |
