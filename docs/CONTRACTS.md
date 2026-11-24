@@ -15,7 +15,7 @@
 | 다른 매장 ID로 요청하면 404 | NFR-03 |
 | 연락처 마스킹(`010-****-1234`)은 서버 응답 단계에서 적용한다 | NFR-04, A4 |
 | 모든 입력은 서버에서 검증하고, 사용자 입력을 출력할 때 이스케이프한다 | NFR-08 |
-| 목록 API는 페이징한다. 고객 목록은 20건. 기간 조회는 기간을 최대 7일로 제한하고 페이징하지 않는다 | NFR-01, FR-CUS-02, C13, F13 |
+| 목록 API는 페이징한다. 고객 목록은 20건. 기간 조회는 기간을 최대 7일로 제한하고 페이징하지 않는다. 스탭 · 시술 메뉴 목록은 페이징하지 않고, 휴무일 조회는 최대 31일로 제한하고 페이징하지 않는다 | NFR-01, FR-CUS-02, C13, F13, F22 |
 | 매장 로그인 5회 연속 실패 시 15분 잠금. PIN은 매장 단위 5회 연속 실패 시 5분 차단 | FR-ACC-02·08, C1·C22 |
 | PIN 인증은 5분 무입력 또는 [잠금] 시 해제 | FR-ACC-08, C23 |
 | 예약 저장 시 서버가 겹침을 다시 검사하고, 동시에 같은 시간을 잡으면 하나만 저장한다 | FR-RSV-04, C7 |
@@ -358,6 +358,26 @@
 
 **`DELETE /api/session/pin`** [잠금] (FR-ACC-08). 근무자. 성공하면 `204`이고 PIN 인증만 해제된다. 현재 근무자는 그대로다.
 
+**`GET /api/staff`** 활성 스탭 목록 (FR-RSV-01, FR-ACC-04). 근무자. 담당 스탭 선택용이라 비활성 스탭은 빠진다. 페이징 없음 (F22).
+
+| 응답 필드 (배열의 원소) | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 스탭 ID |
+| `name` | string | 이름 |
+
+- 정렬: 원장 먼저, 그다음 등록 순(ID)
+
+**`GET /api/staff?includeInactive=true`** 스탭 관리 화면용 목록 (FR-ACC-04, FR-SET-05). `OWNER_PIN`. 비활성 스탭도 넣는다. 위 필드에 아래를 더한다. PIN 해시는 어느 응답에도 넣지 않는다.
+
+| 응답 필드 (추가) | 타입 | 설명 |
+| --- | --- | --- |
+| `owner` | boolean | 원장 여부 (FR-ACC-01) |
+| `lockedFeatureAllowed` | boolean | "잠긴 기능 사용 허용" (FR-ACC-03). 원장은 항상 true |
+| `regularDaysOff` | string[] | 정기 휴무 요일(3절 「요일」), `MONDAY`부터 순서. 없으면 빈 배열 (FR-SET-07, F20) |
+| `status` | string | `ACTIVE` 또는 `INACTIVE` (FR-ACC-04) |
+
+- 정렬: 활성 스탭 먼저, 그 안에서 원장 먼저, 그다음 등록 순(ID)
+
 ### 고객 (CUS)
 
 **`POST /api/customers`** 고객 등록 (FR-CUS-01). `CUSTOMER_WRITE`. 성공하면 `201`. 처리 스탭은 현재 근무자다 (FR-ACC-10).
@@ -690,3 +710,35 @@
 | `openingHours` | object[] | 요일별 영업시간 7개, `MONDAY`부터 `SUNDAY` 순서. `{ "dayOfWeek": string, "open": string \| null, "close": string \| null }`. 시각은 3절 「시:분」, 정기 휴무인 요일은 `open` · `close`가 `null` (C7) |
 
 - 근무자가 없으면 `worker_required` 403
+
+**`GET /api/service-menus`** 시술 메뉴 (FR-SET-02). 근무자. 예약 화면이 소요 시간 합계를 기본값으로 쓴다 (FR-RSV-01). 페이징 없음 (F22).
+
+| 응답 필드 (배열의 원소) | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 메뉴 ID |
+| `category` | string | 시술 카테고리(3절) |
+| `name` | string | 시술명 |
+| `price` | number | 가격(원) |
+| `durationMinutes` | number | 소요 시간(분), 30분 단위 |
+| `cycleMinDays` | number | 기본 주기 최소(일) |
+| `cycleMaxDays` | number | 기본 주기 최대(일) |
+| `predictionAttribute` | string | 메뉴 예측 속성(3절) `NORMAL` `EXCLUDE` `END_SIGNAL` (E5) |
+
+- 정렬: 카테고리(3절 순서), 그다음 등록 순(ID)
+
+**`GET /api/day-offs?from=&to=`** 매장 · 스탭 임시 휴무일 (FR-SET-07). 근무자. 캘린더가 휴무일을 고를 수 없게 표시하고(FR-RSV-02), 설정 화면이 목록으로 보여 준다. 페이징 없음 (F22).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `from` | string | 예 | 날짜(3절). 이 날부터 |
+| `to` | string | 예 | 날짜(3절). 이 날까지(포함). `from` 이후이고 기간은 최대 31일. 어기면 `invalid` 400 |
+
+| 응답 필드 (배열의 원소) | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 휴무일 ID |
+| `date` | string | 날짜(3절) |
+| `staffId` | number \| null | 스탭 휴무면 스탭 ID, 매장 휴무면 `null` |
+| `reason` | string \| null | 사유 |
+
+- 정렬: 날짜순, 같은 날은 매장 휴무 먼저
+- 스탭 정기 휴무 요일은 여기 넣지 않는다 (`GET /api/staff?includeInactive=true`의 `regularDaysOff`)
