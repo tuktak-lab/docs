@@ -598,6 +598,43 @@
 | --- | --- | --- |
 | `tags` | string[] | 태그 이름. 없으면 빈 배열 |
 
+**`GET /api/customers/{customerId}/history`** 시술 히스토리북 (FR-CUS-07, C6, A13, F1). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404. 방문 최신순(방문일 내림차순)으로 페이지를 나눈다. 결제 금액은 넣지 않는다 (`GET /api/customers/{customerId}/payments`).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `visitId` | number | 방문 ID |
+| `visitDate` | string | 방문일 |
+| `serviceCount` | number | 시술 건수 ("방문 1회 · 시술 n건", C6) |
+| `services` | object[] | 실제 시술(visit_service, A13), 저장한 순서 |
+| `photos` | object[] | 사진, 올린 순서. 사진 동의(`PHOTO`) 최신 행이 동의가 아니면 빈 배열 |
+| `notes` | object[] | 방문 메모(visit_note, F1), 작성한 순서 |
+
+| `services` 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `category` | string | 3절 「시술 카테고리」 |
+| `menuName` | string \| null | 시술 메뉴 이름. 가져온 방문은 null이고 화면은 "메뉴 미상"으로 보인다 (A13) |
+| `staff` | object \| null | 담당 스탭 `{ "id", "name" }`. 가져온 방문이면 null |
+
+| `photos` 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `photoId` | number | 사진 ID |
+| `url` | string | 서명 URL (`GET /api/photos/{photoId}/file`, 발급 뒤 5분 만료, NFR-07) |
+| `uploadedAt` | string | 올린 시각 |
+
+| `notes` 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `noteId` | number | 방문 메모 ID |
+| `content` | string | 내용 |
+| `staff` | object | 작성 스탭 `{ "id", "name" }` |
+| `createdAt` | string | 작성 시각 |
+
+- 사진만 모아 보는 갤러리는 화면이 방문마다의 `photos`를 모아 보여 준다
+- 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
+
 **`POST /api/customers/{customerId}/consult-notes`** 상담 메모 작성 (FR-CUS-06). `CUSTOMER_WRITE`. 성공하면 `201`. 작성 스탭은 현재 근무자, 작성 시각은 서버 시각이다 (FR-ACC-10, D6).
 
 | 요청 필드 | 타입 | 필수 | 규칙 |
