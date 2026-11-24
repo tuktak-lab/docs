@@ -530,6 +530,15 @@
 - 다른 매장 · 삭제된 고객이면 `not_found` 404
 - 조회는 접근 로그에 남긴다. 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자로 기록한다 (NFR-06, ARCHITECTURE 6장 「기록에 남는 사람」)
 
+**`PATCH /api/customers/{customerId}`** 고객 기본 정보 수정 (명세서 2장 「고객 기본 정보 수정」). `CUSTOMER_EDIT` (기본 PIN, 토글 가능). 성공하면 `204`. `POST /api/customers`의 기본 정보 칸을 통째로 보내고, 빠진 선택 칸은 비운다. 주의사항 · 취향 · 동의 · 예약 제한은 이 API로 바꾸지 않는다 (각 API).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` · `phone` · `gender` · `birthYear` · `preferredLanguage` · `acquisitionChannel` | | | `POST /api/customers`와 같다. `phone`이 매장 안 다른 고객과 같으면 `duplicate` 409 (자기 번호는 그대로 둬도 된다) |
+
+- 다른 매장 · 삭제된 고객이면 `not_found` 404
+- 수정은 접근 로그에 남긴다. 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자로 기록한다 (NFR-06, ARCHITECTURE 6장 「기록에 남는 사람」)
+
 **`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
 
 | 응답 필드 | 타입 | 설명 |
