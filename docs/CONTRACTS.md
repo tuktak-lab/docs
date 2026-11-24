@@ -271,3 +271,67 @@
 3. **`[제안]`을 `[확정]`으로 바꾸는 것**은 팀 합의 뒤에만 하고, 날짜와 근거를 함께 적는다.
 4. 계약을 바꾼 커밋 메시지에는 바꾼 절을 적는다 (예: `CONTRACTS 2: add pin_locked`).
 5. 개발 저장소를 만들 때 이 문서를 그쪽으로 옮길지 정한다 [검토 필요]. 옮기면 그 뒤로는 개발 저장소가 기준이고, 여기에는 링크만 남긴다. 같은 계약을 두 곳에서 관리하지 않는다.
+
+## 6. 요청 · 응답 필드 [제안]
+
+4절 엔드포인트의 요청 · 응답 필드다. 구현을 시작하는 영역부터 이 절에 더한다 (머리말, 5절 절차). 형식(camelCase, 날짜 · 시각, 페이지)과 오류 모양은 2 · 3절을 따른다.
+
+### 세션 · 매장 계정 · 스탭 (ACC)
+
+**`POST /api/shops`** 매장 가입 (FR-ACC-01). 비로그인. 성공하면 `201`이고 로그인은 되지 않는다 (로그인은 `POST /api/session`).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `email` | string | 예 | 이메일 형식, 255자 이하. 전역 고유, 이미 있으면 `duplicate` 409 (F11) |
+| `password` | string | 예 | 8~64자. 명세서에 규칙이 없어 정한 제안값 |
+| `shopName` | string | 예 | 1~100자 |
+| `ownerName` | string | 예 | 원장 스탭 이름, 1~50자 |
+| `ownerPin` | string | 예 | 숫자 4~6자리 (FR-ACC-03) |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `shopId` | number | 만든 매장 ID |
+
+규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유가 들어간다: `[{ "field": "ownerPin", "reason": "PIN은 숫자 4~6자리입니다" }]`.
+
+**`POST /api/session`** 매장 로그인 (FR-ACC-02). 비로그인. 성공하면 `200`이고 세션을 새로 발급한다 (세션 고정 방지). 로그인 직후에는 근무자가 없어 근무자 PIN 입력(`PUT /api/session/worker`)만 할 수 있다 (FR-ACC-10).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `email` | string | 예 | 비어 있지 않음 |
+| `password` | string | 예 | 비어 있지 않음 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `shopId` | number | 로그인한 매장 ID |
+| `shopName` | string | 매장 이름 |
+
+- 이메일이 없거나 비밀번호가 틀리면 둘을 구분하지 않고 `login_failed` 401
+- 5회 연속 실패하면 15분 동안 `login_locked` 429. 잠금 중에는 맞는 비밀번호도 거부한다 (C1). 원장 PIN 재설정의 비밀번호 확인 실패도 같은 횟수에 넣는다 (F11 · F14). 성공하면 횟수를 0으로 되돌린다
+
+**`GET /api/session`** 세션 조회 (FR-ACC-08 · 10). 매장 세션이면 근무자가 없어도 된다. 조회는 PIN 인증 만료 시각을 연장하지 않는다 (연장은 잠긴 기능을 쓸 때, `docs/ARCHITECTURE.md` 「6」).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `shopId` | number | 매장 ID |
+| `shopName` | string | 매장 이름 |
+| `currentStaff` | object \| null | 현재 근무자 `{ "id", "name" }`. 없으면 null (화면 상단 표시, FR-ACC-10) |
+| `pinStaff` | object \| null | PIN 인증 스탭 `{ "id", "name" }`. 인증이 없거나 만료되면 null (FR-ACC-08) |
+| `pinExpiresAt` | string \| null | PIN 인증 만료 시각. `pinStaff`가 null이면 null |
+| `features` | object | 기능 키(3절) → `PUBLIC` · `PIN` · `OWNER_PIN`. 13개 키가 모두 들어간다. 고정 항목도 같은 값으로 들어간다 |
+
+**`DELETE /api/session`** 로그아웃 (FR-ACC-02 · 10). 매장 세션. 성공하면 `204`이고 세션이 사라져 근무자 · PIN 인증도 함께 해제된다.
+
+**`PUT /api/session/worker`** 근무자 PIN 입력 · 근무자 전환 (FR-ACC-10). 매장 세션. 교대할 때도 같은 API에 다른 PIN을 넣는다. 잠긴 기능 PIN 인증(`POST /api/session/pin`)은 바꾸지 않는다 (D6).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `pin` | string | 예 | 숫자 4~6자리 (C21). 형식이 틀리면 `invalid` 400이고 실패 횟수에 넣지 않는다 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 현재 근무자가 된 스탭 ID |
+| `name` | string | 스탭 이름 |
+
+- 맞는 활성 스탭이 없으면(틀린 PIN, 비활성 스탭) `pin_invalid` 400
+- 매장 단위로 5회 연속 실패하면 5분 동안 `pin_locked` 429. 잠긴 기능 PIN 인증과 실패 횟수를 같이 센다 (C22). 성공하면 0으로 되돌린다
