@@ -682,6 +682,21 @@
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 
+**`POST /api/message-templates`** 템플릿 작성 · **`PATCH /api/message-templates/{templateId}`** 수정 (FR-CMP-03, C10). `CAMPAIGN_SEND`. 작성은 `201`과 `{ "id": number }`, 수정은 `204`. 수정은 같은 본문을 통째로 보낸다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` | string | 예 | 1~100자 |
+| `body` | string | 예 | 치환 전 본문. 2,000바이트 이하(2장, FR-CMP-05와 같은 셈법: ASCII가 아닌 문자 2바이트, ASCII · 줄바꿈 1바이트). 광고 표기는 넣지 않아도 된다 (발송할 때 붙음, FR-CMP-04) |
+| `purpose` | string | 예 | 3절 「템플릿 용도」. 메시지 종류는 이 값으로 정해진다 |
+
+- 변수는 `{` `}`로 감싼 이름이다. 쓸 수 있는 변수: 모든 용도 `{고객명}` `{매장명}`, `CONSENT_RECONFIRM`이 아닌 용도 `{최근시술}` `{경과일}`, `CONSENT_RECONFIRM`만 `{동의일}` `{야간광고동의}` (C10). 그 밖의 변수가 있으면 `invalid` 400이고 `details`에 `field: "body"`
+- 다른 매장 · 없는 템플릿이면 `not_found` 404
+
+**`DELETE /api/message-templates/{templateId}`** 템플릿 삭제 (FR-CMP-03). `CAMPAIGN_SEND`. 본문 없음, 성공하면 `204`. 기본 템플릿도 지울 수 있다.
+
+- 캠페인이 쓰고 있는 템플릿이면 `conflict` 409 (캠페인 기록을 남기기 위해), 다른 매장 · 없는 템플릿이면 `not_found` 404
+
 **매장 기본 템플릿** (FR-CMP-03 · 13, D1). 매장 가입(`POST /api/shops`) 때 아래 4개를 그 매장 템플릿으로 만든다. 매장이 고칠 수 있는 일반 템플릿이다. 광고 본문 앞뒤의 광고 표기 · 매장명 · 전화번호 · 무료수신거부(FR-CMP-04)는 발송할 때 붙으므로 본문에 넣지 않는다.
 
 | 이름 | 용도 | 본문 |
