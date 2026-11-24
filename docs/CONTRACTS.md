@@ -488,6 +488,11 @@
 
 - 고객 없는 예약(시술 마감 카드로만 완료, E3) · 확정이 아닌 예약이면 `conflict` 409
 
+**`DELETE /api/visits/{visitId}`** 방문 삭제 = 그 방문의 마감 되돌리기 (FR-VIS-03, F8). 기능 키 `CUSTOMER_EDIT`이고, 그 방문에 취소되지 않은 결제가 있으면 `PAYMENT_EDIT`도 검사한다 (4장). 본문 없음, 성공하면 `204`.
+
+- 한 트랜잭션에서 연결된 예약을 모두 `CONFIRMED`로 되돌리고, 결제를 모두 취소 표시하고(이력은 남음), 시술 · 방문 메모 · 사진과 방문을 지운다
+- 고객 없음으로 마감한 방문이면 `conflict` 409 (E3), 다른 매장 · 없는 방문이면 `not_found` 404
+
 ### 시술 마감 · 결제 (PAY)
 
 **`GET /api/reservations/{reservationId}/closing`** 시술 마감 카드 채울 값 (FR-PAY-01 · 04, FR-VIS-05). 기능 키 `RESERVATION`. 확정 · 완료 예약만 연다.
@@ -522,6 +527,19 @@
 
 - 고객 없는 예약을 고객 연결 없이(`noCustomer` 없이) 마감하면 `conflict` 409. 먼저 `PUT /api/reservations/{reservationId}/customer`로 연결한다
 - 취소 · 노쇼 예약이면 `conflict` 409 (FR-PAY-01)
+
+**`PATCH /api/payments/{paymentId}`** 결제 수정 (FR-PAY-02). 기능 키 `PAYMENT_EDIT`. 성공하면 `204`.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `amount` | number | 예 | 원 단위 정수, 0 이상 |
+| `method` | string | 예 | 결제 수단(3절) |
+
+- 취소된 결제면 `conflict` 409, 다른 매장 · 없는 결제면 `not_found` 404
+
+**`POST /api/payments/{paymentId}/cancel`** 결제 취소 (FR-PAY-02, F8). 기능 키 `PAYMENT_EDIT`. 본문 없음, 성공하면 `204`. 결제만 취소하고 방문은 그대로 둔다 (방문까지 되돌리려면 `DELETE /api/visits/{visitId}`).
+
+- 이미 취소된 결제면 `conflict` 409, 다른 매장 · 없는 결제면 `not_found` 404
 
 ### 예측 · 인사이트 (PRD)
 
