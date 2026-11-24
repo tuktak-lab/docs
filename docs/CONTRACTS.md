@@ -948,6 +948,28 @@
 
 - 동의 재확인 템플릿은 전송자 명칭(`{매장명}`) · 동의 일자(`{동의일}`) · 유지 또는 철회 방법을 담는다 (FR-CMP-13, D1). 철회 방법의 [수신거부]는 가상 휴대폰의 수신 거부 접수다 (FR-CMP-11)
 
+**`POST /api/campaigns/targets`** 대상 미리 계산 (FR-CMP-01 · 02). `CAMPAIGN_SEND`. 저장하지 않는다. 캠페인 만들기(`POST /api/campaigns`)도 같은 칸으로 대상을 다시 고른다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `kind` | string | 아니오 | 3절 「발송 메시지 종류」의 `AD`(기본) · `CONSENT_RECONFIRM`. 그 밖의 값은 `invalid` 400 |
+| `category` | string | 광고면 예 | 3절 「시술 카테고리」. 광고는 이 카테고리의 "고객 × 카테고리" 행(예측 행)이 있는 고객에서 고른다 (E7). 동의 재확인 안내는 보내면 `invalid` 400 |
+| `customerIds` | number[] | 동의 재확인이면 예 | 인사이트(광고) · 동의 재확인 대상 목록에서 고른 고객, 3,000명까지. 광고는 그중 그 카테고리 행이 있는 고객만 남는다 |
+| `visitCountMin` · `visitCountMax` | number | 아니오 | 총 방문 횟수 범위 (`GET /api/customers`와 같은 기준). 0 이상, 최소 ≤ 최대 |
+| `predictionStatus` | string | 아니오 | 3절 「예측 상태」. 그 카테고리의 오늘 기준 상태 |
+| `lastServiceFrom` · `lastServiceTo` | string | 아니오 | 그 카테고리 마지막 시술일 범위(주기 계산 제외 방문은 뺌, 양 끝 포함). 시작 ≤ 끝 |
+
+- 광고의 조건 칸(`customerIds`, 방문 횟수, 예측 상태, 마지막 시술일)은 모두 함께(AND) 적용한다. 동의 재확인 안내는 `customerIds` 말고는 보내면 `invalid` 400
+- 세션 매장의 정상 고객만 고르고(삭제된 고객 제외, FR-CUS-10), 한 고객은 한 번만 센다 (한 캠페인에서 고객당 메시지 1건)
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `targetCount` | number | 제외 후 발송 대상 고객 수 (대조군 분리 전) |
+| `excludedCounts` | object | 3절 「캠페인 제외 사유」 값마다 고객 수, 0건 포함: `{ "UNSUBSCRIBED": number, "NO_CONSENT": number, "RESEND_LIMIT": number }`. 고객당 사유 하나, 이 순서로 우선 |
+
+- 수신 거부 · 미동의는 마케팅 동의 최신 행으로 판정한다 (철회 경로 `UNSUBSCRIBE`면 수신 거부, 받은 적 없음 · 미동의 · 직접 철회는 미동의)
+- 재발송 제한은 광고에만 적용하고, 매장 설정 기간(FR-SET-04, 기본 7일) 안에 발송 성공한 광고 메시지가 있으면 제외한다. 실패 · 대조군 행은 세지 않는다. 동의 재확인 안내에는 적용하지 않는다 (FR-CMP-13)
+
 **`GET /api/virtual-phone/messages?phone=`** 가상 수신함 (FR-CMP-16). `CAMPAIGN_SEND`. 세션 매장이 그 번호로 보낸 메시지 중 받은 것(`SENT`)만, 받은 시각 최신순 (F26). 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없다 (명세서 5장).
 
 | 쿼리 | 타입 | 필수 | 규칙 |
