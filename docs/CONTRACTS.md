@@ -378,6 +378,31 @@
 
 - 정렬: 활성 스탭 먼저, 그 안에서 원장 먼저, 그다음 등록 순(ID)
 
+**`POST /api/staff`** 스탭 등록 (FR-ACC-03). `OWNER_PIN`. 성공하면 `201`과 `{ "id": number }`. 개인 계정 · 초대 링크는 없다 (C2 제외). 원장 스탭은 가입 때만 생긴다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` | string | 예 | 1~50자 |
+| `pin` | string | 예 | 숫자 4~6자리 (C21). 같은 매장 스탭(비활성 포함)의 PIN과 같으면 `duplicate` 409 (명세서 5장 staff) |
+| `lockedFeatureAllowed` | boolean | 아니요 | "잠긴 기능 사용 허용". 기본 false (FR-ACC-03) |
+| `regularDaysOff` | string[] | 아니요 | 정기 휴무 요일(3절 「요일」), 중복 없이. 기본 빈 배열 (FR-SET-07) |
+
+- 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유
+
+**`PATCH /api/staff/{staffId}`** 스탭 수정 (FR-ACC-03, FR-SET-07). `OWNER_PIN`. 보낸 칸만 바꾼다. PIN은 `PUT /api/staff/{staffId}/pin`으로 바꾼다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` | string | 아니요 | 1~50자 |
+| `lockedFeatureAllowed` | boolean | 아니요 | 원장 스탭에 false면 `invalid` 400 (FR-ACC-01) |
+| `regularDaysOff` | string[] | 아니요 | 정기 휴무 요일 전체(3절 「요일」), 중복 없이. 빈 배열이면 정기 휴무 없음 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `pushedReservations` | object[] | 바꾼 뒤 정기 휴무 요일에 걸리는 이 스탭의 확정 예약(지금 이후), 시작 시각순. `{ "id": number, "startAt": string, "customerName": string \| null }`. 자동 취소하지 않는다 (F12). 없으면 빈 배열 |
+
+- 다른 매장 · 없는 스탭이면 `not_found` 404
+
 ### 고객 (CUS)
 
 **`POST /api/customers`** 고객 등록 (FR-CUS-01). `CUSTOMER_WRITE`. 성공하면 `201`. 처리 스탭은 현재 근무자다 (FR-ACC-10).
@@ -729,6 +754,23 @@
 
 - 동의 재확인 템플릿은 전송자 명칭(`{매장명}`) · 동의 일자(`{동의일}`) · 유지 또는 철회 방법을 담는다 (FR-CMP-13, D1). 철회 방법의 [수신거부]는 가상 휴대폰의 수신 거부 접수다 (FR-CMP-11)
 
+**`GET /api/virtual-phone/messages?phone=`** 가상 수신함 (FR-CMP-16). `CAMPAIGN_SEND`. 세션 매장이 그 번호로 보낸 메시지 중 받은 것(`SENT`)만, 받은 시각 최신순 (F23). 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없다 (명세서 5장).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `phone` | string | 예 | `010`으로 시작하는 11자리, 하이픈은 있어도 없어도 된다 (고객 `phone`과 같은 규칙) |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 발송 기록 ID |
+| `kind` | string | 3절 「발송 메시지 종류」 |
+| `messageType` | string | 3절 「메시지 유형」 |
+| `body` | string | 받은 본문 (광고 표기 포함) |
+| `receivedAt` | string | 받은 시각(3절, 발송 결과 시각) |
+
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400. 받은 메시지가 없으면 빈 페이지
+
 ### 성과 · 대시보드 · 검색 (ANL · DSH · SCH)
 
 구현을 시작할 때 이 소절에 채운다. 다른 영역 소절은 건드리지 않는다.
@@ -805,6 +847,19 @@
 | `predictionAttribute` | string | 메뉴 예측 속성(3절) `NORMAL` `EXCLUDE` `END_SIGNAL` (E5) |
 
 - 정렬: 카테고리(3절 순서), 그다음 등록 순(ID)
+
+**`GET /api/category-cycles`** 카테고리 기본 주기 (FR-SET-02, C16). `OWNER_PIN`. 메뉴 없는 가져온 방문의 예측에 쓴다 (E5).
+
+| 응답 필드 (배열의 원소) | 타입 | 설명 |
+| --- | --- | --- |
+| `category` | string | 시술 카테고리(3절). 5개 모두, 3절 순서 |
+| `minDays` | number | 기본 주기 최소(일) |
+| `maxDays` | number | 기본 주기 최대(일) |
+
+**`PUT /api/category-cycles`** 카테고리 기본 주기 수정 (FR-SET-02). `OWNER_PIN`. 위와 같은 모양의 배열을 통째로 보낸다. 성공하면 `204`.
+
+- 카테고리 5개가 한 번씩 있어야 하고, `1 ≤ minDays ≤ maxDays`. 어기면 `invalid` 400
+- 값이 바뀐 카테고리는 그 카테고리에 메뉴 없는 방문이 있는 고객의 예측을 같은 트랜잭션에서 다시 계산한다 (FR-SET-02, FR-PRD-01)
 
 **`GET /api/day-offs?from=&to=`** 매장 · 스탭 임시 휴무일 (FR-SET-07). 근무자. 캘린더가 휴무일을 고를 수 없게 표시하고(FR-RSV-02), 설정 화면이 목록으로 보여 준다. 페이징 없음 (F22).
 
