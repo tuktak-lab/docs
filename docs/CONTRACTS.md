@@ -308,3 +308,16 @@
 
 - 이메일이 없거나 비밀번호가 틀리면 둘을 구분하지 않고 `login_failed` 401
 - 5회 연속 실패하면 15분 동안 `login_locked` 429. 잠금 중에는 맞는 비밀번호도 거부한다 (C1). 원장 PIN 재설정의 비밀번호 확인 실패도 같은 횟수에 넣는다 (F11 · F14). 성공하면 횟수를 0으로 되돌린다
+
+**`GET /api/session`** 세션 조회 (FR-ACC-08 · 10). 매장 세션이면 근무자가 없어도 된다. 조회는 PIN 인증 만료 시각을 연장하지 않는다 (연장은 잠긴 기능을 쓸 때, `docs/ARCHITECTURE.md` 「6」).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `shopId` | number | 매장 ID |
+| `shopName` | string | 매장 이름 |
+| `currentStaff` | object \| null | 현재 근무자 `{ "id", "name" }`. 없으면 null (화면 상단 표시, FR-ACC-10) |
+| `pinStaff` | object \| null | PIN 인증 스탭 `{ "id", "name" }`. 인증이 없거나 만료되면 null (FR-ACC-08) |
+| `pinExpiresAt` | string \| null | PIN 인증 만료 시각. `pinStaff`가 null이면 null |
+| `features` | object | 기능 키(3절) → `PUBLIC` · `PIN` · `OWNER_PIN`. 13개 키가 모두 들어간다. 고정 항목도 같은 값으로 들어간다 |
+
+**`DELETE /api/session`** 로그아웃 (FR-ACC-02 · 10). 매장 세션. 성공하면 `204`이고 세션이 사라져 근무자 · PIN 인증도 함께 해제된다.
