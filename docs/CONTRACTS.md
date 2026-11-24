@@ -651,6 +651,16 @@
 
 - 고객 없는 예약(시술 마감 카드로만 완료, E3) · 확정이 아닌 예약이면 `conflict` 409
 
+**`PATCH /api/visits/{visitId}`** 방문의 실제 시술 · 시술별 담당 스탭 · 주기 계산 제외 수정 (FR-VIS-03 · 05). 기능 키 `CUSTOMER_EDIT`. 성공하면 `204`. 고객이 있는 방문이면 같은 트랜잭션에서 그 고객의 예측을 다시 계산한다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `services` | object[] | 예 | 방문의 실제 시술 전체 `{ "serviceMenuId": number, "staffId": number, "cycleExcluded"?: boolean }`, 1개 이상. 이 목록으로 바꾼다. 다른 매장 메뉴 · 스탭이면 `not_found` 404. 고객 없음으로 마감한 방문에 `cycleExcluded: true`면 `invalid` 400 (E3) |
+
+- 같은 메뉴의 기존 시술은 그 행을 남기고 담당 스탭 · 주기 계산 제외만 바꾼다(귀속 발송 F15 유지). 목록에서 빠진 메뉴의 시술은 지우고, 새 메뉴는 그 방문에 연결된 가장 이른 예약의 시술로 더한다 (F25)
+- "앞으로 ○○ 메뉴를 모두 주기 계산에서 제외할까요?" 안내(FR-VIS-05)는 응답에 넣지 않는다. 화면이 `GET /api/service-menus`의 `predictionAttribute`가 `NORMAL`인 메뉴에 체크하는 순간 띄우고, [예]면 `PATCH /api/service-menus/{menuId}`(`OWNER_PIN`)로 바꾼다
+- CSV로 가져온 방문이면 `conflict` 409 (F25), 다른 매장 · 없는 방문이면 `not_found` 404
+
 **`DELETE /api/visits/{visitId}`** 방문 삭제 = 그 방문의 마감 되돌리기 (FR-VIS-03, F8). 기능 키 `CUSTOMER_EDIT`이고, 그 방문에 취소되지 않은 결제가 있으면 `PAYMENT_EDIT`도 검사한다 (4장). 본문 없음, 성공하면 `204`.
 
 - 한 트랜잭션에서 연결된 예약을 모두 `CONFIRMED`로 되돌리고, 결제를 모두 취소 표시하고(이력은 남음), 시술 · 방문 메모 · 사진과 방문을 지운다
@@ -754,7 +764,7 @@
 
 - 동의 재확인 템플릿은 전송자 명칭(`{매장명}`) · 동의 일자(`{동의일}`) · 유지 또는 철회 방법을 담는다 (FR-CMP-13, D1). 철회 방법의 [수신거부]는 가상 휴대폰의 수신 거부 접수다 (FR-CMP-11)
 
-**`GET /api/virtual-phone/messages?phone=`** 가상 수신함 (FR-CMP-16). `CAMPAIGN_SEND`. 세션 매장이 그 번호로 보낸 메시지 중 받은 것(`SENT`)만, 받은 시각 최신순 (F23). 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없다 (명세서 5장).
+**`GET /api/virtual-phone/messages?phone=`** 가상 수신함 (FR-CMP-16). `CAMPAIGN_SEND`. 세션 매장이 그 번호로 보낸 메시지 중 받은 것(`SENT`)만, 받은 시각 최신순 (F26). 종류(광고 · 수신 거부 처리 안내 · 동의 재확인 안내)와 상관없다 (명세서 5장).
 
 | 쿼리 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
@@ -774,6 +784,23 @@
 ### 성과 · 대시보드 · 검색 (ANL · DSH · SCH)
 
 구현을 시작할 때 이 소절에 채운다. 다른 영역 소절은 건드리지 않는다.
+
+**`GET /api/analytics/summary`** 매장 기본 지표 (FR-ANL-05 · 06). `SALES_ANALYTICS`. 산식은 결정 F24. 날짜는 Asia/Seoul (NFR-12). 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9). 주기 내 재방문율은 아직 응답에 없다 (F24, 스키마 결정 뒤 이 응답에 더함).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `period` | string | 예 | `TODAY` · `THIS_WEEK`(이번 주 월요일~일요일, F10) · `THIS_MONTH` · `LAST_MONTH` · `CUSTOM` |
+| `from` · `to` | string | `CUSTOM`이면 예 | 날짜(3절), 둘 다 포함. `from` ≤ `to`, 길이 제한 없음. `CUSTOM`이 아니면 읽지 않는다 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `from` · `to` | string | 계산에 쓴 기간(3절 날짜, 둘 다 포함) |
+| `revenue` | number | 매출(원): 결제일이 기간 안이고 취소되지 않은 결제 합계. 고객 없는 방문 · 삭제된 고객의 결제 포함 (FR-PAY-02, E3, C12) |
+| `visitCount` | number | 방문일이 기간 안인 방문 수. CSV로 가져온 방문은 빼고 고객 없는 방문은 넣는다 (FR-CUS-13, E3) |
+| `newCustomerCount` | number | 첫 방문일(가져온 방문 포함)이 기간 안인 고객 수. 고객 없는 방문은 빠지고 삭제된 고객은 센다 (E9, C12) |
+
+- `period`가 없거나 값이 틀리면, `CUSTOM`인데 `from` · `to`가 없거나 날짜가 아니거나 `from` > `to`이면 `invalid` 400
+- 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
 
 **`GET /api/dashboard/today`** 오늘 예약 · 마감 안 된 예약 · 이번 주 예약 요약 (FR-DSH-01 · 03 · 05). 기능 키 `DASHBOARD_SEARCH`. "오늘" · "지금" · "이번 주"는 Asia/Seoul 기준이고 (NFR-12), 이번 주는 오늘이 속한 주의 월요일부터 일요일까지다 (F10). 페이징 없음.
 
