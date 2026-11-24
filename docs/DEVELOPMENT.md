@@ -119,6 +119,7 @@
 - 권한에 따라 버튼을 숨기거나 잠긴 영역을 가리는 것은 편의일 뿐이다. 실제 검사는 서버가 한다 (NFR-04).
 - API 응답 타입은 `src/features/<영역>/types.ts`에 두고, `docs/CONTRACTS.md`의 이름(camelCase 필드, enum 값)을 그대로 쓴다.
 - 스타일은 Next.js 기본 CSS Modules로 시작한다.
+  - 데모에서 옮긴 화면은 당분간 화면별 CSS를 문자열로 받아(`import css from './X.css?inline'`, `next.config.ts`의 turbopack 규칙) 그 화면이 떠 있는 동안에만 `<head>`에 넣는다(`useStyleSheet`). 데모 화면끼리 `.card`·`.btn` 같은 클래스 이름이 겹치고 정의가 달라 전역 CSS로 합치면 화면이 깨지기 때문이다. CSS Modules로는 각 화면 이슈에서 옮긴다 (Keepsy #119, 2026-11-24).
 
 **라이브러리** (A14: 필요할 때 추가). 새 라이브러리는 PR 「영향 범위」에 적는다.
 
@@ -190,7 +191,8 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 | 백엔드 실행 | `./gradlew bootRun` (`backend/`에서) | 확인됨 (2026-11-23, Git Bash. 8080에서 Spring Security 기본 로그인 화면) |
 | 백엔드 테스트 · 빌드 | `./gradlew test` · `./gradlew build` (`backend/`에서, 로컬 MySQL이 떠 있어야 함) | 확인됨 (2026-11-23, Git Bash. `./gradlew build`는 CI `backend` job(GitHub Actions ubuntu, MySQL 8.4 서비스 컨테이너)에서도 통과, Keepsy #110) |
 | 백엔드 포매팅 | `./gradlew spotlessApply` (`backend/`에서, 커밋 전). 검사(`spotlessCheck`)는 `./gradlew build`에 포함 | 확인됨 (2026-11-23, Git Bash, Keepsy #150) |
-| 프론트 개발 서버 · 린트 · 빌드 | `npm run dev` · `npm run lint` · `npm run build` (`frontend/`에서) | 확인 전 |
+| 프론트 개발 서버 · 빌드 | `npm run dev` · `npm run build` (`frontend/`에서, Node 24) | 확인됨 (2026-11-24, Git Bash · Node 24.20.0, Keepsy #119. `dev`는 3000에서 열리고 `/api/**`를 8080으로 넘김, `build`는 `out/`에 정적 파일을 만듦) |
+| 프론트 린트 | `npm run lint` (`frontend/`에서) | 실행은 됨, 통과 안 함 (2026-11-24. 데모에서 가져온 코드의 기존 오류 16개(`no-explicit-any` 14, `no-unescaped-entities` 2)가 남아 있음. #119 머지 뒤 수정 PR로 고침) |
 | 시드 데이터 적재 | [검토 필요] (C17 구성) | — |
 
 로컬에서 여는 순서: ① MySQL 띄우기 → ② 백엔드 실행(8080) → ③ 프론트 개발 서버 실행(3000) → 브라우저에서 `http://localhost:3000`.
