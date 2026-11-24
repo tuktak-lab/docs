@@ -423,6 +423,25 @@
 - 방문 요약(FR-CUS-11)은 Keepsy #37에서 이 표에 필드를 더한다
 - 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
 
+**`GET /api/customers/{customerId}/predictions`** 카테고리별 예측 (FR-PRD-02 · 03 · 04, FR-CUS-03). `INSIGHT`. 고객 상세 화면이 공용이어도 이 영역은 "인사이트" 설정을 따른다 (A3 보완). 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 예측도 지운다, FR-CUS-10).
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `predictions` | object[] | 그 고객이 받은 적 있는 시술 카테고리마다 한 행, 3절 「시술 카테고리」 순서. 방문이 없으면 빈 배열 |
+
+| `predictions` 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `category` | string | 3절 「시술 카테고리」 |
+| `status` | string \| null | 오늘(Asia/Seoul) 기준 3절 「예측 상태」. 다음 예약(오늘 이후 확정 예약, 아직 완료되지 않은 오늘 예약 포함)에 이 카테고리 시술이 있으면 관리 대상이 아니라 null (FR-PRD-04) |
+| `lastServiceDate` | string \| null | 이 카테고리 마지막 시술일 (주기 계산 제외 방문은 뺌). 예측 없음이면 null |
+| `startDate` · `endDate` | string \| null | 예측 기간 (방문 리듬 타임라인의 예측 기간, FR-CUS-03). 예측 없음이면 null. 종료 신호면 둘 다 종료 신호 방문일 |
+| `averageIntervalDays` | number \| null | 평균 간격(최근 5개 간격 평균). `defaultCycleBased`가 true면 시술 기본 주기 최대값. 예측 없음이면 null |
+| `basisVisitCount` | number | 근거 방문 수 "방문 n회" (주기 계산 제외 방문은 세지 않음) |
+| `defaultCycleBased` | boolean | 근거 방문이 1~2회라 "시술 평균 주기 기준"으로 표시할지 (FR-PRD-03) |
+| `endSignal` | boolean | 종료 신호 예측인지 (FR-PRD-01 ②) |
+
+- 모든 방문이 주기 계산 제외인 카테고리도 행이 있고 `status`는 `NO_PREDICTION`, 예측 칸은 null, `basisVisitCount`는 0이다 (FR-PRD-01 ①)
+
 **`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
 
 | 응답 필드 | 타입 | 설명 |
