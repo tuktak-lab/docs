@@ -1091,6 +1091,21 @@
 
 - 근무자가 없으면 `worker_required` 403
 
+**`PUT /api/shop`** 매장 정보 · 영업시간 수정 (FR-SET-01 · 07, C7). `OWNER_PIN`. `GET /api/shop`과 같은 모양을 통째로 보낸다 (F39). 바꾼 영업시간은 바로 예약 가능 시간 계산에 쓰인다 (FR-RSV-04). 광고 표기의 매장명 · 전화번호 · 수신 거부 방법도 이 값을 쓴다 (FR-CMP-04).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `name` | string | 예 | 매장명. 1~100자, 앞뒤 공백을 빼고 저장 |
+| `phone` · `senderNumber` · `unsubscribeNumber` | string \| null | 아니요 | 매장 연락처 · 발신번호 · 수신 거부 번호. 국내 전화번호(0으로 시작하는 번호 예: `02-000-0000` `010-0000-0000` `080-000-0000`, 대표번호 `1588-0000`처럼 15xx · 16xx · 18xx). 하이픈은 있어도 없어도 되고 보낸 그대로 저장. 빼거나 빈 값이면 `null` (F39, NFR-08) |
+| `openingHours` | object[] | 예 | 요일별 영업시간 7개, 요일마다 한 번씩. `{ "dayOfWeek": string, "open": string \| null, "close": string \| null }`. 시각은 3절 「시:분」이고 30분 단위(`:00` · `:30`), `open` < `close`(자정 넘김 없음). 둘 다 `null`이면 정기 휴무, 하나만 `null`이면 `invalid` (C7, F39) |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `pushedReservations` | object[] | 바꾼 뒤 영업시간 밖으로 밀린 확정 예약(지금 이후), 시작 시각순. 정기 휴무가 된 요일의 예약과, 시작부터 종료까지 그날 영업시간 안에 들지 않는 예약. 모든 스탭의 예약이고 고객 없는 예약도 포함한다 (E3). `PATCH /api/staff/{staffId}`의 `pushedReservations`와 같은 모양. 자동 취소하지 않는다 (F12). 없으면 빈 배열 |
+
+- 규칙을 어기면 `invalid` 400이고 `details`에 칸별 사유
+- 임시 휴무일은 `POST /api/day-offs`, 스탭 정기 휴무 요일은 `PATCH /api/staff/{staffId}`로 바꾼다
+
 **`GET /api/service-menus`** 시술 메뉴 (FR-SET-02). 근무자. 예약 화면이 소요 시간 합계를 기본값으로 쓴다 (FR-RSV-01). 페이징 없음 (F22).
 
 | 응답 필드 (배열의 원소) | 타입 | 설명 |
