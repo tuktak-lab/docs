@@ -587,6 +587,34 @@
 | --- | --- | --- |
 | `tags` | string[] | 태그 이름. 없으면 빈 배열 |
 
+**`POST /api/customers/{customerId}/consult-notes`** 상담 메모 작성 (FR-CUS-06). `CUSTOMER_WRITE`. 성공하면 `201`. 작성 스탭은 현재 근무자, 작성 시각은 서버 시각이다 (FR-ACC-10, D6).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `content` | string | 예 | 1~2,000자. 공백만이면 `invalid` 400 |
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `noteId` | number | 만든 메모 ID (수정 · 삭제 `PATCH` · `DELETE /api/consult-notes/{noteId}`의 대상) |
+
+**`GET /api/customers/{customerId}/consult-notes`** 상담 메모 목록 (FR-CUS-06). `CUSTOMER_VIEW`. 최신 작성순(같으면 ID가 큰 순).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+응답은 3절 페이지 응답이다.
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `noteId` | number | 메모 ID |
+| `content` | string | 내용 |
+| `staff` | object | 작성 스탭 `{ "id", "name" }`. 비활성 스탭도 그대로 보여준다 |
+| `writtenAt` | string | 작성 일시 |
+
+- 두 API 모두 다른 매장 · 삭제된 고객이면 `not_found` 404
+- 목록 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06)
+
 **`GET /api/customers/{customerId}/consents`** 동의 현재 상태와 이력 (FR-CUS-09). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404 (삭제하면 동의 이력도 지운다, C12).
 
 | 응답 필드 | 타입 | 설명 |
