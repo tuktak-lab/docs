@@ -413,6 +413,13 @@
 - 다른 매장 · 없는 스탭이면 `not_found` 404
 - 그 스탭의 현재 근무자 · PIN 인증 세션은 그대로 둔다 (다음 PIN 입력부터 새 PIN)
 
+**`POST /api/staff/{staffId}/deactivate`** 스탭 비활성화 (FR-ACC-04). `OWNER_PIN`. 본문 없음, 성공하면 `204`. 작성한 기록 · 메모는 그대로 남는다.
+
+- 그 스탭의 확정 예약이 있으면 `conflict` 409이고 비활성화하지 않는다. 지금 이후 예약과 마감 안 된 지난 예약(FR-DSH-05, E4)을 모두 보며, 고객 없는 예약도 포함한다 (E3, F33). `details`는 그 예약 목록, 시작 시각순 `[{ "id": number, "startAt": string, "customerName": string | null }]` (`pushedReservations`와 같은 모양). 다른 스탭으로 옮기거나(`PATCH /api/reservations/{reservationId}`) 마감 · 취소한 뒤 다시 부른다
+- 원장 스탭이면 `invalid` 400 (FR-ACC-01). 이미 비활성이면 바꾸지 않고 `204`
+- 다른 매장 · 없는 스탭이면 `not_found` 404
+- 비활성 스탭은 근무자 전환 · PIN 인증을 할 수 없고 `GET /api/staff`(담당 스탭 선택)에서 빠진다. 지금 어느 세션의 현재 근무자이면 다음 요청부터 `worker_required` 403, PIN 인증 스탭이면 `pin_required` 403(원장 PIN 기능은 `owner_pin_required`) (F33)
+
 ### 고객 (CUS)
 
 **`POST /api/customers`** 고객 등록 (FR-CUS-01). `CUSTOMER_WRITE`. 성공하면 `201`. 처리 스탭은 현재 근무자다 (FR-ACC-10).
