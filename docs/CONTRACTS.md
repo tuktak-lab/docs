@@ -424,9 +424,9 @@
 
 | 요청 필드 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
-| `features` | object | 예 | 기능 키(3절) → `PUBLIC` 또는 `PIN`. **보낸 키만 바꾼다** (F34). `GET /api/session`의 `features`를 고쳐 통째로 보내도 된다 |
+| `features` | object | 예 | 기능 키(3절) → `PUBLIC` 또는 `PIN`. **보낸 키만 바꾼다** (F38). `GET /api/session`의 `features`를 고쳐 통째로 보내도 된다 |
 
-- 고정 키(`DASHBOARD_SEARCH` · `CONSENT` · `OWNER_PIN`)는 3절의 고정 값과 같으면 그대로 두고, 다르면 `invalid` 400 (E8, F34)
+- 고정 키(`DASHBOARD_SEARCH` · `CONSENT` · `OWNER_PIN`)는 3절의 고정 값과 같으면 그대로 두고, 다르면 `invalid` 400 (E8, F38)
 - 모르는 키, 토글 가능한 키에 `PUBLIC` · `PIN` 외의 값(`OWNER_PIN` 포함), 빈 `features`면 `invalid` 400
 
 ### 고객 (CUS)
