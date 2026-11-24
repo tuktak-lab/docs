@@ -360,6 +360,29 @@
 - `consents`의 항목마다 동의 이력 행(동의함, 동의 방법, 처리 스탭)을 만든다. 동의하지 않은 항목은 행을 만들지 않으므로 "동의를 받은 적 없음"이 된다 (F19)
 - 같은 번호의 삭제된 고객은 번호가 비어 있어 중복으로 보지 않고, 예전 기록과 연결하지 않은 새 고객이 된다 (C12 보완)
 
+**`GET /api/customers`** 고객 목록 · 검색 · 필터 (FR-CUS-02). `CUSTOMER_VIEW`. 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `q` | string | 아니오 | 숫자 4자리면 휴대폰 뒷자리 일치, 그 밖에는 이름에 포함 |
+| `visitCountMin` · `visitCountMax` | number | 아니오 | 총 방문 횟수 범위(가져온 방문 · 주기 계산 제외 방문 포함, FR-CUS-11과 같은 기준). 0 이상, 최소 ≤ 최대 |
+| `category` | string | 아니오 | 3절 「시술 카테고리」. 그 카테고리 시술을 받은 적 있는 고객 |
+| `predictionStatus` | string | 아니오 | 3절 「예측 상태」. 오늘 기준으로 그 상태인 카테고리가 하나라도 있는 고객. `category`와 함께 주면 그 카테고리의 상태 (FR-PRD-04) |
+| `staffId` | number | 아니오 | 가장 최근 방문의 시술 담당 스탭 중 한 명이라도 이 스탭인 고객 |
+| `marketingConsent` | boolean | 아니오 | 마케팅 동의 현재 상태(최신 행). `false`는 미동의 · 철회 · 받은 적 없음 |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `customerId` | number | 고객 ID |
+| `name` | string | 이름 |
+| `phone` | string | 마스킹한 휴대폰 `010-****-1234` (NFR-04, A4). 전체 번호는 `GET /api/customers/{customerId}/contact` |
+| `visitCount` | number | 총 방문 횟수 |
+| `lastVisitDate` | string \| null | 마지막 방문일. 방문이 없으면 null |
+| `marketingConsent` | boolean | 마케팅 동의 현재 상태 |
+
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
+
 ### 예약 (RSV)
 
 **`GET /api/reservations/available-times`** 예약 가능한 시작 시각 (FR-RSV-04). 기능 키 `RESERVATION`.
