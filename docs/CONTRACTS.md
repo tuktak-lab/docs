@@ -1438,7 +1438,7 @@
 - 캠페인이 없거나 다른 매장 것이면 `not_found` 404 (NFR-03)
 - 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
 
-**`GET /api/analytics/summary`** 매장 기본 지표 (FR-ANL-05 · 06). `SALES_ANALYTICS`. 산식은 결정 F24. 날짜는 Asia/Seoul (NFR-12). 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9). 주기 내 재방문율은 아직 응답에 없다 (F24, 스키마 결정 뒤 이 응답에 더함).
+**`GET /api/analytics/summary`** 매장 기본 지표 (FR-ANL-05 · 06). `SALES_ANALYTICS`. 산식은 결정 F24. 날짜는 Asia/Seoul (NFR-12). 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9). 주기 내 재방문율은 결정 F58.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
@@ -1451,7 +1451,15 @@
 | `revenue` | number | 매출(원): 결제일이 기간 안이고 취소되지 않은 결제 합계. 고객 없는 방문 · 삭제된 고객의 결제 포함 (FR-PAY-02, E3, C12) |
 | `visitCount` | number | 방문일이 기간 안인 방문 수. CSV로 가져온 방문은 빼고 고객 없는 방문은 넣는다 (FR-CUS-13, E3) |
 | `newCustomerCount` | number | 첫 방문일(가져온 방문 포함)이 기간 안인 고객 수. 고객 없는 방문은 빠지고 삭제된 고객은 센다 (E9, C12) |
+| `cycleRevisits` | object[] | 주기 내 재방문(FR-ANL-05, F58). 시술 카테고리(3절)마다 하나, 3절 순서로 5개. 0건 카테고리도 넣는다 |
 
+| 카테고리 필드 (`cycleRevisits`) | 타입 | 설명 |
+| --- | --- | --- |
+| `category` | string | 시술 카테고리(3절) |
+| `endedCount` | number | 이탈 신호 기간 끝날(예측 종료일 + 스냅샷의 이탈 신호 기간)이 기간 안이고 오늘보다 이전인 예측 스냅샷 수. 이탈 신호 기간이 빈 스냅샷은 뺀다 (F57) |
+| `revisitedCount` | number | 그중 실제 다음 방문일이 끝날 이하인 스냅샷 수 |
+
+- 주기 내 재방문율은 `revisitedCount ÷ endedCount`이고, `endedCount`가 0이면 화면이 비율을 보이지 않는다. 삭제된 고객의 스냅샷도 센다 (F29와 같음)
 - `period`가 없거나 값이 틀리면, `CUSTOM`인데 `from` · `to`가 없거나 날짜가 아니거나 `from` > `to`이면 `invalid` 400
 - 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
 
