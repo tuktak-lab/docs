@@ -160,6 +160,7 @@
 | `POST /api/session/pin` | 잠긴 기능 PIN 인증 | 근무자 | FR-ACC-08 |
 | `DELETE /api/session/pin` | [잠금] | 근무자 | FR-ACC-08 |
 | `POST /api/password-reset` · `PUT /api/password-reset` | 재설정 메일 요청 · 새 비밀번호 설정 (P2) | 비로그인 | FR-ACC-06 |
+| `GET /api/virtual-mailbox` | 가상 메일함 (비밀번호 재설정 메일 확인, 개발 · 시연용) | 매장 세션 | FR-ACC-06 |
 | `PUT /api/owner-pin` | 매장 계정 비밀번호를 다시 확인하고 원장 PIN 재설정 | 매장 세션 | FR-ACC-09 |
 | `GET /api/staff` | 활성 스탭 목록 (담당 스탭 선택용) | 근무자 | FR-RSV-01, FR-ACC-04 |
 | `GET /api/staff?includeInactive=true` | 스탭 관리 화면용 목록 (비활성 스탭 포함) | `OWNER_PIN` | FR-ACC-04, FR-SET-05 |
@@ -357,6 +358,37 @@
 - 다른 스탭이 인증하면 그 스탭으로 바뀐다
 
 **`DELETE /api/session/pin`** [잠금] (FR-ACC-08). 근무자. 성공하면 `204`이고 PIN 인증만 해제된다. 현재 근무자는 그대로다.
+
+**`POST /api/password-reset`** 비밀번호 재설정 메일 요청 (FR-ACC-06, P2, F49). 비로그인. 본문 `{ "email": string }`. 항상 `204`이고 가입된 이메일인지 드러내지 않는다 (FR-ACC-02와 같은 취지).
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `email` | string | 예 | 이메일 형식, 255자 이하. 형식이 틀리면 `invalid` 400 |
+
+- 가입된 이메일이면 재설정 토큰을 만들고(유효 30분, C3) 링크 `/password-reset?token=<토큰>`을 담은 메일을 보낸다. 토큰은 해시로만 저장한다 (F14)
+- 메일 발송 수단이 정해질 때까지 메일은 가상 메일함(`GET /api/virtual-mailbox`)에만 쌓이고 실제로 나가지 않는다 (F49)
+
+**`PUT /api/password-reset`** 새 비밀번호 설정 (FR-ACC-06, F14 · F49). 비로그인. 성공하면 `204`.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `token` | string | 예 | 메일 링크의 토큰 |
+| `newPassword` | string | 예 | 8~64자 (가입과 같은 규칙) |
+
+- 토큰은 한 번만 쓴다: `사용 시각 IS NULL AND 만료 시각 > 지금` 조건부 UPDATE로 바뀐 행이 1일 때만 비밀번호를 바꾼다. 같은 토큰으로 동시에 요청해도 하나만 성공한다 (F14)
+- 없는 · 만료된(30분 지남) · 이미 쓴 토큰은 구분하지 않고 `invalid` 400, `details`의 `field`는 `token`
+- 성공하면 BCrypt로 저장하고(NFR-02), 로그인 실패 횟수 · 잠금을 풀고, 그 매장의 아직 안 쓴 다른 토큰도 쓸 수 없게 한다 (F49)
+
+**`GET /api/virtual-mailbox`** 가상 메일함 (FR-ACC-06, F49). 매장 세션. 세션 매장의 계정 이메일로 보낸 메일만 보낸 시각 최신순으로 준다. 개발 · 시연용이며 실제 메일은 오가지 않는다. 페이징은 1절 규칙(`size` 1~100, 기본 20), 3절 페이지 응답.
+
+| 항목 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | number | 메일 ID |
+| `subject` | string | 제목 |
+| `body` | string | 본문 (재설정 링크 포함) |
+| `sentAt` | string | 보낸 시각 (3절) |
+
+- 로그인하지 않았으면 `unauthorized` 401. 다른 매장 계정으로 온 메일은 보이지 않는다
 
 **`PUT /api/owner-pin`** 원장 PIN 재설정 (FR-ACC-09, F11 · F14). 매장 세션 (근무자 · PIN 인증 없어도 된다. 원장 PIN을 잊은 경우라서). 매장 계정 비밀번호를 다시 확인하고 원장 스탭의 PIN을 새로 정한다. 성공하면 `204`.
 
