@@ -204,7 +204,7 @@
 | --- | --- | --- | --- |
 | `GET /api/reservations?from=&to=` | 기간 예약 (주간 캘린더, 일간 보기). 기간은 최대 7일, 페이징 없음 (7일 초과는 `invalid`) | `RESERVATION` | FR-RSV-02·05 |
 | `GET /api/reservations/available-times?staffId=&date=&minutes=` | 예약 가능한 시작 시각 (30분 단위) | `RESERVATION` | FR-RSV-04 |
-| `POST /api/reservations` · `PATCH /api/reservations/{reservationId}` | 예약 등록 · 수정 (겹침이면 `reservation_conflict`, 예약 제한 고객이면 `owner_pin_required`) | `RESERVATION` | FR-RSV-01·04, FR-CUS-14 |
+| `POST /api/reservations` · `PATCH /api/reservations/{reservationId}` | 예약 등록 · 수정 (겹침이면 `reservation_conflict`, 등록 때만 예약 제한 고객이면 `owner_pin_required`, F53) | `RESERVATION` | FR-RSV-01·04, FR-CUS-14 |
 | `GET /api/reservations/{reservationId}` | 예약 상세 (주의사항 포함) | `RESERVATION` | FR-CUS-05, FR-DSH-01 |
 | `PUT /api/reservations/{reservationId}/customer` | 고객 없는 예약에 고객 연결 | `RESERVATION` | FR-DSH-01, FR-VIS-04 |
 | `POST /api/reservations/{reservationId}/cancel` · `/no-show` | 취소 · 노쇼 (노쇼는 시작 시각 뒤에만) | `RESERVATION` | FR-RSV-03 |
@@ -893,6 +893,20 @@
 
 - 항목은 따로 센다. 한 행에서 고객 · 방문 · 상담 메모가 모두 생기면 각각 1씩 늘어 합이 행 수와 같지 않을 수 있다. 같은 파일을 다시 올리면 `createdCustomers` · `addedVisits` · `addedNotes`가 0이다
 
+**`PUT /api/customers/{customerId}/booking-restriction`** 예약 제한 켜기 · 끄기와 사유 (FR-CUS-14, C8, 결정 F53). `OWNER_PIN`. 성공하면 `204`. 제한 여부와 사유를 통째로 바꾼다.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `restricted` | boolean | 예 | 예약 제한 여부 |
+| `reason` | string \| null | `restricted`가 true면 예 | 앞뒤 공백을 떼고 1~200자. `restricted`가 false면 무시하고 사유를 비운다 |
+
+- 같은 상태로 다시 보내도 된다. 제한을 유지한 채 사유만 바꿀 때도 이 API를 쓴다
+- 제한을 걸어도 이미 잡힌 확정 예약은 취소 · 변경하지 않는다. 새 예약 등록(`POST /api/reservations`)만 원장 PIN이 필요해진다 (F53)
+- 노쇼 횟수로 자동 제한하지 않는다. 원장이 고객 상세의 `noShowCount`를 보고 판단한다 (C8)
+- `restricted` 누락, 사유 누락 · 공백만 · 200자 초과면 `invalid` 400. 다른 매장 · 없는 · 삭제된 고객이면 `not_found` 404
+- 수정으로 접근 로그에 남긴다. 기록 스탭은 원장 PIN 인증 스탭 (NFR-06)
+- 고객 상세(`GET /api/customers/{customerId}`)의 `bookingRestricted` · `bookingRestrictionReason`에 바로 반영된다
+
 ### 예약 (RSV)
 
 **`GET /api/reservations`** 기간 예약 · 주간 캘린더 · 일간 보기 (FR-RSV-02 · 05). 기능 키 `RESERVATION`. 페이징 없음 (F13).
@@ -958,6 +972,7 @@
 | `staffId` · `startAt` · `minutes` · `channel` · `consultFirst` · `memo` · `serviceMenuIds` | | | `POST /api/reservations`와 같다 |
 
 - 같은 담당 스탭의 다른 확정 · 완료 예약과 겹치거나 영업시간 밖 · 매장 · 스탭 휴무면 `reservation_conflict` 409. 자기 자신과의 겹침은 보지 않는다 (FR-RSV-04)
+- 예약 제한 고객이어도 원장 PIN을 묻지 않는다. 고객을 바꿀 수 없고 이미 받은 예약이라서다 (FR-CUS-14, F53)
 - 완료 · 취소 · 노쇼 예약이면 `conflict` 409 (F30), 다른 매장 · 없는 예약이면 `not_found` 404
 
 **`GET /api/reservations/{reservationId}`** 예약 상세 (FR-RSV-01, FR-CUS-05, FR-DSH-01). 기능 키 `RESERVATION`. 상태와 관계없이 조회한다.
