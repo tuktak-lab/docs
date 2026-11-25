@@ -58,7 +58,7 @@
 | 캠페인 검토 체크 없음 | `review_required` | 409 | FR-CMP-06 |
 | 야간 발송 차단 | `night_send_blocked` | 409 | FR-CMP-07 |
 | 일 발송 한도 초과 | `daily_limit_exceeded` | 409 | FR-CMP-12 |
-| 그 밖의 상태 충돌 (시작 전 노쇼, 취소·노쇼 예약에 결제, 같은 캠페인 재발송, 남은 예약이 있는 스탭 비활성화) | `conflict` | 409 | FR-RSV-03, FR-PAY-01, FR-CMP-08, FR-ACC-04 |
+| 그 밖의 상태 충돌 (시작 전 노쇼, 취소·노쇼 예약에 결제, 같은 캠페인 재발송, 남은 예약이 있는 스탭 비활성화, 다른 요청과 DB 잠금이 겹쳐 대기 시간 초과·교착. 잠금이 겹친 경우 message는 "다른 작업과 겹쳤습니다. 잠시 후 다시 시도해 주세요"이고 서버는 다시 시도하지 않는다) | `conflict` | 409 | FR-RSV-03, FR-PAY-01, FR-CMP-08, FR-ACC-04, F63 |
 | 그 밖의 서버 오류 | `internal_error` | 500 | — |
 
 - Spring Security의 인증·인가 실패도 같은 모양으로 응답한다. 전역 예외 처리 한 곳(`@RestControllerAdvice`)에서 바꾼다.
@@ -245,6 +245,7 @@
 | `GET /api/campaigns/{campaignId}/funnel` | 발송 → 도달 → 재예약 → 재방문 | `CAMPAIGN_VIEW` | FR-ANL-01·03 |
 | `GET /api/campaigns/{campaignId}/control-comparison` | 발송군 vs 대조군 재방문율·재예약률 | `CAMPAIGN_VIEW` | FR-ANL-09 |
 | `GET /api/campaigns/{campaignId}/revenue` | 연결 매출 | `SALES_ANALYTICS` | FR-ANL-02 |
+| `GET /api/analytics/campaigns?period=` | 기간 안에 발송한 광고 캠페인별 퍼널 · 연결 매출과 전체 합계 (F65) | `SALES_ANALYTICS` | FR-ANL-01·02 |
 | `GET /api/analytics/summary?period=` | 매출, 방문 수, 신규 고객 수, 주기 내 재방문율 | `SALES_ANALYTICS` | FR-ANL-05·06 |
 | `GET /api/analytics/prediction-accuracy?period=` | 적중률, 평균 오차 | `SALES_ANALYTICS` | FR-ANL-07 |
 | `GET /api/dashboard/today` | 오늘 예약, 마감 안 된 예약, 이번 주 요일별 건수 | `DASHBOARD_SEARCH` | FR-DSH-01·03·05 |
@@ -561,8 +562,9 @@
 | --- | --- | --- | --- |
 | `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
 
-응답은 3절 페이지 응답이고, 항목 필드는 `GET /api/reservations`의 「예약 필드」와 같다 (`id` · `status` · `startAt` · `minutes` · `staff` · `consultFirst` · `channel` · `customer` · `services`).
+응답은 3절 페이지 응답이고, 항목 필드는 `GET /api/reservations`의 「예약 필드」(`id` · `status` · `startAt` · `minutes` · `staff` · `consultFirst` · `channel` · `customer` · `services`)에 예약 메모 `memo`(string | null, `GET /api/reservations/{reservationId}`의 `memo`와 같음)를 더한 것이다 (결정 F66).
 
+- 조회는 그 고객의 개인정보 조회로 접근 로그에 남긴다 (NFR-06, 예약 상세와 같음, F66)
 - 다른 매장 · 없는 · 삭제된 고객이면 `not_found` 404
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 
@@ -1439,9 +1441,41 @@
 | --- | --- | --- |
 | `revenue` | number | 연결 매출(원): 이 캠페인 발송이 귀속된 방문 시술이 하나라도 있는 방문의 취소되지 않은 결제 합계 (FR-PAY-02). 결제는 시술별로 나눌 수 없어 방문 결제 전액을 세고(A13), 같은 방문에 이 캠페인 귀속 시술이 여럿이어도 한 번만 센다. 다른 캠페인에도 귀속된 방문은 그 캠페인 매출에도 전액 들어간다 (FR-ANL-02). CSV로 가져온 방문은 빠진다 (FR-CUS-13). 결제일 · 방문일로 거르지 않는다 (F33) |
 
-- 매장 전체 합계에서 한 방문을 한 번만 세는 규칙(FR-ANL-02)은 매장 기본 지표(`GET /api/analytics/summary`, 결제 기준)가 지킨다. 이 응답은 캠페인 하나의 값이다
+- 매장 전체 합계에서 한 방문을 한 번만 세는 규칙(FR-ANL-02)은 매장 기본 지표(`GET /api/analytics/summary`, 결제 기준)와 캠페인 성과 합계(`GET /api/analytics/campaigns`의 `total`)가 지킨다. 이 응답은 캠페인 하나의 값이다
 - 삭제된 고객의 결제도 그대로 센다 (C12)
 - 캠페인이 없거나 다른 매장 것이면 `not_found` 404 (NFR-03)
+- 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
+
+**`GET /api/analytics/campaigns`** 캠페인 성과 목록과 전체 합계 (FR-ANL-01 · 02, 결정 F65). `SALES_ANALYTICS`. 성과 분석 화면이 캠페인마다 퍼널 · 매출을 따로 부르지 않고 한 번에 받는다. 대상은 발송 시각(`sent_at`)의 날짜(Asia/Seoul)가 기간 안인 **광고** 캠페인이다(동의 재확인 안내 · 아직 발송하지 않은 · 취소된 캠페인 제외). 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9).
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `period` · `from` · `to` | string | `GET /api/analytics/summary`와 같음 | 같은 값과 규칙 (F24) |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20. `items`에만 적용하고 `total`은 기간 안 캠페인 전체로 계산한다 |
+
+응답은 3절 페이지 응답(`items` · `page` · `size` · `totalElements`)에 아래 필드를 더한 것이다. `items`는 발송 시각이 늦은 순(같으면 ID가 큰 순)이다.
+
+| 응답 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `from` · `to` | string | 계산에 쓴 기간(3절 날짜, 둘 다 포함) |
+| `total` | object | 기간 안 캠페인 전체 합계. 아래 「합계 필드」 |
+
+| 항목 필드 (`items`) | 타입 | 설명 |
+| --- | --- | --- |
+| `id` · `name` · `category` · `sentAt` | number · string · string · string | 캠페인 목록(`GET /api/campaigns`)의 같은 필드. 광고 캠페인만 들어가 `category` · `sentAt`은 null이 아니다 |
+| `sentCount` · `reachedCount` · `rebookedCount` · `revisitedCount` | number | 이 캠페인의 퍼널. `GET /api/campaigns/{campaignId}/funnel`과 같은 값 |
+| `revenue` | number | 이 캠페인의 연결 매출. `GET /api/campaigns/{campaignId}/revenue`와 같은 값 |
+
+| 합계 필드 (`total`) | 타입 | 설명 |
+| --- | --- | --- |
+| `campaignCount` | number | 기간 안 광고 캠페인 수 (`totalElements`와 같다) |
+| `sentCount` · `reachedCount` · `rebookedCount` | number | 각 단계에 한 캠페인이라도 든 고객 수. 여러 캠페인을 받은 고객도 한 번만 센다 |
+| `revisitedCount` | number | 캠페인마다 「재예약 단계에 들고 그 캠페인 귀속 방문이 있는」 고객을 모은 합집합의 고객 수. 그래서 `revisitedCount` ≤ `rebookedCount` (F35) |
+| `revenue` | number | 기간 안 캠페인 중 하나라도 귀속된 방문을 중복 없이 모아 취소되지 않은 결제를 더한 값. 한 방문이 여러 캠페인에 귀속돼도 한 번만 센다 (FR-ANL-02) |
+
+- 재예약 · 재방문 · 매출은 퍼널 · 연결 매출 API와 같은 귀속 판정을 쓰고, 조회 기간 밖에서 일어났어도 그 캠페인에 귀속되면 넣는다 (F65). 대조군은 어느 값에도 넣지 않는다
+- 삭제된 고객도 그대로 센다 (C12). 다른 매장 캠페인은 넣지 않는다 (NFR-03)
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400 (`GET /api/analytics/summary`와 같음)
 - 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
 
 **`GET /api/analytics/summary`** 매장 기본 지표 (FR-ANL-05 · 06). `SALES_ANALYTICS`. 산식은 결정 F24. 날짜는 Asia/Seoul (NFR-12). 화면은 결과를 "모의 데이터로 생성한 결과값"으로 밝힌다 (E9). 주기 내 재방문율은 결정 F58.
