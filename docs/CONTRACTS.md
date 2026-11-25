@@ -248,7 +248,7 @@
 | `GET /api/analytics/summary?period=` | 매출, 방문 수, 신규 고객 수, 주기 내 재방문율 | `SALES_ANALYTICS` | FR-ANL-05·06 |
 | `GET /api/analytics/prediction-accuracy?period=` | 적중률, 평균 오차 | `SALES_ANALYTICS` | FR-ANL-07 |
 | `GET /api/dashboard/today` | 오늘 예약, 마감 안 된 예약, 이번 주 요일별 건수 | `DASHBOARD_SEARCH` | FR-DSH-01·03·05 |
-| `GET /api/dashboard/care-targets` | 오늘 관리할 고객 상위 10행 | `INSIGHT` | FR-DSH-02 |
+| `GET /api/dashboard/care-targets` | 오늘 관리할 고객 상위 10행 (관리 종료 `CLOSED` 행은 빼고 고름, F55) | `INSIGHT` | FR-DSH-02 |
 | `GET /api/dashboard/recent-campaigns` | 최근 3개 캠페인 재예약 전환율 (P2) | `CAMPAIGN_VIEW` | FR-DSH-04 |
 | `GET /api/dashboard/booking-channels?period=` | 예약 경로 비율 (P2) | `DASHBOARD_SEARCH` | FR-DSH-06 |
 | `GET /api/search/customers?q=` | 상단 검색창의 고객 결과 | `CUSTOMER_VIEW` | FR-SCH-04 |
@@ -576,7 +576,10 @@
 | `basisVisitCount` | number | 근거 방문 수 "방문 n회" (주기 계산 제외 방문은 세지 않음) |
 | `defaultCycleBased` | boolean | 근거 방문이 1~2회라 "시술 평균 주기 기준"으로 표시할지 (FR-PRD-03) |
 | `endSignal` | boolean | 종료 신호 예측인지 (FR-PRD-01 ②) |
+| `handlingMark` | string \| null | 3절 「처리 표시」 `CONTACTED` · `ON_HOLD` · `CLOSED`. 없으면 null (FR-PRD-07, F55) |
+| `handlingMarkedAt` | string \| null | 처리 표시 시각. 표시가 없으면 null |
 
+- 관리 종료(`CLOSED`) 행도 나온다. 고객 상세에서 확인하고 처리 표시 API로 지운다 (F55)
 - 모든 방문이 주기 계산 제외인 카테고리도 행이 있고 `status`는 `NO_PREDICTION`, 예측 칸은 null, `basisVisitCount`는 0이다 (FR-PRD-01 ①)
 
 **`GET /api/customers/{customerId}/contact`** 연락처 전체 (명세서 2장 「고객 연락처 전체 보기」, A4). `CONTACT_FULL` (기본 PIN, 토글 가능). 다른 응답은 모두 마스킹한 번호를 주고, 전체 번호는 이 API로만 준다 (NFR-04).
@@ -1112,10 +1115,25 @@
 | `startDate` · `endDate` | string | 예측 기간. 종료 신호면 둘 다 종료 신호 방문일 |
 | `marketingConsent` | boolean | 마케팅 동의 최신 행이 동의인지. 받은 적 없으면 false |
 | `nextAction` | string \| null | 3절 「다음 액션」. 주기 도래 · 이탈 신호 · 장기 미방문 + 동의면 `REVISIT` · `CHECK_IN` · `WIN_BACK`, 동의를 받은 적 없으면(행 없음 또는 철회 경로 없는 미동의, CSV 가져오기 포함) `REQUEST_CONSENT`, 동의를 철회한 고객(`DIRECT` · `UNSUBSCRIBE`)과 예정 상태는 null (FR-PRD-06, F19) |
+| `handlingMark` | string \| null | 3절 「처리 표시」 `CONTACTED` · `ON_HOLD` · `CLOSED`. 없으면 null (FR-PRD-07, F55) |
+| `handlingMarkedAt` | string \| null | 처리 표시 시각. 표시가 없으면 null |
 
 - 예측 없음 카테고리, 다음 예약(오늘 이후 확정 예약, 아직 완료되지 않은 오늘 예약 포함)에 그 카테고리 시술이 있는 행, 삭제된 고객은 나오지 않는다 (FR-PRD-01 · 04, FR-CUS-10)
-- 처리 표시(FR-PRD-07, P2)는 아직 응답에 없다. 구현할 때 이 표에 더한다
+- 관리 종료(`CLOSED`) 행은 나오지 않는다. 페이지와 `totalElements`도 뺀 뒤 기준이다. 연락함 · 보류는 그대로 나오고 `handlingMark`로 보인다 (FR-PRD-07, F55)
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400. 행이 없으면 빈 페이지
+
+**`PUT /api/customers/{customerId}/predictions/{category}/handling`** 처리 표시 (FR-PRD-07, B5, E6, E7, 결정 F2 · F55). `INSIGHT`. 성공하면 `204`. 고객 × 시술 카테고리 하나의 표시를 통째로 바꾼다.
+
+| 경로 · 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `category` (경로) | string | 예 | 3절 「시술 카테고리」. 아니면 `invalid` 400 |
+| `mark` | string \| null | 아니오 | 3절 「처리 표시」 `CONTACTED`(연락함) · `ON_HOLD`(보류) · `CLOSED`(관리 종료). null이거나 빼면 표시를 지운다 |
+
+- 표시할 때마다(같은 값을 다시 보내도) 처리 시각을 지금으로, 처리 기준 방문일을 그 카테고리의 지금 마지막 시술일(주기 계산 제외 방문은 뺌)로 새로 쓴다. 지우면 셋 다 비운다
+- 자동 해제: 방문이 생기거나 바뀌어 예측을 다시 계산한 뒤 마지막 시술일이 처리 기준 방문일보다 늦어지면 표시를 지운다. 예측만 다시 계산 · 같은 날 방문 · 과거 방문 등록 · 주기 계산 제외 방문 · 다른 카테고리 방문으로는 지우지 않는다 (F2)
+- 연락함 · 보류는 중복 연락을 막는 표시이고, 관리 종료는 인사이트 · 오늘 관리할 고객에서 그 행을 숨긴다. 캠페인 대상 고르기 · 발송에는 영향이 없다 (F55)
+- 예측 없는 카테고리(행 없음 또는 마지막 시술일 없음) · 다른 매장 · 삭제된 고객이면 `not_found` 404. `mark` 값이 틀리면 `invalid` 400
+- 개인정보 수정이 아니라 접근 로그는 남기지 않는다
 
 ### 캠페인 · 발송 · 가상 휴대폰 (CMP)
 
