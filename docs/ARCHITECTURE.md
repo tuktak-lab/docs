@@ -148,6 +148,7 @@ frontend/
 | `/signup` | 매장 가입 | 비로그인 | FR-ACC-01 |
 | `/login` | 매장 로그인 | 비로그인 | FR-ACC-02 |
 | `/password-reset` | 비밀번호 재설정 (P2) | 비로그인 | FR-ACC-06 |
+| `/virtual-mailbox` | 가상 메일함 (개발 · 시연용, F59) | 비로그인 | FR-ACC-06 |
 | `/shift` | 근무자 PIN 입력·전환 | 매장 세션 | FR-ACC-10 |
 | `/dashboard` | CRM 대시보드 (`/`도 여기로) | `DASHBOARD_SEARCH` (영역별 `INSIGHT`·`CAMPAIGN_VIEW`) | FR-DSH-01~06 |
 | `/reservations` | 스탭별 주간 캘린더, 예약 등록·수정 (`?view=day` 일간 보기 P2) | `RESERVATION` | FR-RSV-01~05 |
