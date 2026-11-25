@@ -1159,7 +1159,7 @@
 | `failureReason` | string \| null | 실패 사유 (FR-CMP-10) |
 | `resultAt` | string \| null | 발송 결과 시각 |
 
-**`GET /api/campaigns/{campaignId}/preview`** 캠페인 미리보기 (FR-CMP-05 · 18, B3, 결정 F46). `CAMPAIGN_SEND`. 다른 매장 · 없는 캠페인이면 `not_found` 404. 저장하지 않고 부를 때마다 다시 치환한다. 발송할 때도 다시 치환해 바이트 제한을 다시 검사한다 (F46).
+**`GET /api/campaigns/{campaignId}/preview`** 캠페인 미리보기 (FR-CMP-05 · 18, B3, 결정 F46 · F47). `CAMPAIGN_SEND`. 다른 매장 · 없는 캠페인이면 `not_found` 404. 광고 캠페인인데 매장 정보의 전화번호(`phone`) · 수신 거부 번호(`unsubscribeNumber`) 중 하나라도 비어 있으면 광고 표기(FR-CMP-04)를 붙일 수 없어 `conflict` 409 "광고 표기에 필요한 매장 전화번호와 수신 거부 번호를 매장 정보에 먼저 등록해 주세요."다 (F47, 동의 재확인 안내는 검사하지 않음). 저장하지 않고 부를 때마다 다시 치환한다. 발송할 때도 다시 치환해 바이트 제한을 다시 검사한다 (F46).
 
 | 쿼리 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
@@ -1170,19 +1170,22 @@
 | `sendCount` | number | 발송 인원: 대상 중 대조군이 아닌 고객 수 (F41) |
 | `controlCount` | number | 대조군 인원 (FR-CMP-18) |
 | `estimatedCost` | number | 예상 비용(원) = `sendCount` × 매장 가상 단가(기본 0원, B3) |
-| `unsendableCount` | number | 발송할 수 없는 고객 수 (2,000바이트 초과 · 변수 값 없음) |
+| `unsendableCount` | number | 발송할 수 없는 고객 수 (2,000바이트 초과 · 변수 값 없음 · 삭제된 고객). 전체 발송 인원 기준이고 사유가 여럿이어도 한 번만 센다 (F47) |
 | `items` | object | 발송 인원의 고객별 결과, 1절 페이지 응답, 고객 ID 순 |
 
 | `items` 항목 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `customerId` | number | 고객 ID |
 | `customerName` | string \| null | 고객 이름. 삭제된 고객이면 null |
-| `text` | string \| null | 변수를 치환하고 광고 표기까지 붙인 최종 본문 (FR-CMP-04). 값을 구할 수 없는 변수가 있으면 null |
+| `text` | string \| null | 변수를 치환하고 광고 표기까지 붙인 최종 본문 (FR-CMP-04). 값을 구할 수 없는 변수가 있거나 삭제된 고객이면 null |
 | `bytes` | number \| null | `text`의 바이트 수 (FR-CMP-05). `text`가 null이면 null |
-| `messageType` | string \| null | 3절 「메시지 유형」. null이면 발송 불가 (2,000바이트 초과 또는 변수 값 없음) |
-| `missingVariables` | string[] | 값을 구할 수 없는 변수 이름 (예: `["최근시술"]`). 보통 빈 배열 |
+| `messageType` | string \| null | 3절 「메시지 유형」. null이면 발송 불가 (2,000바이트 초과 · 변수 값 없음 · 삭제된 고객). 화면은 발송 가능 여부를 이 칸으로 판단한다 |
+| `missingVariables` | string[] | 템플릿에 쓴 변수 중 값을 구할 수 없는 변수 이름 (예: `["최근시술"]`). 보통 빈 배열. 삭제된 고객은 빈 배열이어도 발송 불가다 |
 
 - 변수 표기는 결정 F46을 따른다. 화면은 본문을 이스케이프해서 보인다 (NFR-08)
+- `{동의일}`은 마케팅 동의 최신 행이 동의일 때만 값이 있다. 캠페인을 만든 뒤 철회해 최신 행이 미동의면 그 고객만 `missingVariables`에 `"동의일"`이 들어가고 발송 불가다. 철회일 · 과거 동의일로 대신하지 않는다. 다시 동의하면 새 동의 행의 일시를 쓴다 (F44 · F45 · F47)
+- 캠페인을 만든 뒤 삭제된 고객도 대상(`campaign_target`)에 그대로 남고, 대조군이 아니면 `items` · `sendCount`에 들어간다. `customerName` · `text` · `bytes` · `messageType`은 null이고, 변수 없는 템플릿이어도 발송 불가다. 지난 정보를 되살리지 않는다 (C12 · F41 · F47)
+- 미리보기는 대상 · 동의를 다시 거르지 않는다. 발송할 때 동의 · 삭제 여부를 다시 확인해 빠지는 고객에게는 보내지 않는다 (F7 · F45)
 
 **`POST /api/campaigns/{campaignId}/review`** 검토 체크 (FR-CMP-06 · 13). `CAMPAIGN_SEND`. 본문 없음, 성공하면 `204`. 검토자와 검토 시각을 캠페인에 기록한다. 검토자는 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자다 (ARCHITECTURE 6장 「기록에 남는 사람」).
 
