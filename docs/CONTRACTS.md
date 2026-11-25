@@ -109,7 +109,7 @@
 | 발송 메시지 종류 | `AD` `UNSUBSCRIBE_NOTICE` `CONSENT_RECONFIRM` | 제안 (5장 campaign_message) |
 | 메시지 유형 | `SMS` `LMS` | 제안 (FR-CMP-05) |
 | 발송 상태 | `PENDING` `SENT` `FAILED` (대조군 행은 발송하지 않으므로 상태 없음) | 제안 (FR-CMP-10·18) |
-| 캠페인 취소 사유 | `USER_CANCELED`(사용자 취소) `DAILY_LIMIT_EXCEEDED`(예약 발송 시각에 일 발송 한도 초과) | 결정 F7 |
+| 캠페인 취소 사유 | `USER_CANCELED`(사용자 취소) `DAILY_LIMIT_EXCEEDED`(예약 발송 시각에 일 발송 한도 초과) `SHOP_INFO_MISSING`(예약 발송 시각에 광고 표기용 매장 전화번호 · 수신 거부 번호 없음) | 결정 F7 · F56 |
 | 캠페인 제외 사유 | `UNSUBSCRIBED`(수신 거부) `NO_CONSENT`(미동의·직접 철회) `RESEND_LIMIT`(재발송 제한 기간 안). 고객당 하나, 이 순서로 우선 | 확정 (2026-11-23, FR-CMP-02) |
 | 캠페인 상태 | `DRAFT`(작성 중) `SCHEDULED`(예약 발송 대기) `SENDING`(발송 중) `SENT`(발송 완료) `CANCELED`(취소). 상태 전이는 `docs/ARCHITECTURE.md` 「7」 | 결정 F7 |
 
@@ -232,8 +232,8 @@
 | `GET /api/campaigns/{campaignId}/preview` | 고객별 치환 결과, 바이트 수, SMS/LMS, 발송·대조군 인원, 예상 비용 | `CAMPAIGN_SEND` | FR-CMP-05·18 |
 | `POST /api/campaigns/{campaignId}/review` | 검토 체크 (검토자·시각 기록) | `CAMPAIGN_SEND` | FR-CMP-06 |
 | `POST /api/campaigns/{campaignId}/send` | 즉시 발송 | `CAMPAIGN_SEND` | FR-CMP-07·08·12 |
-| `PUT /api/campaigns/{campaignId}/schedule` | 예약 발송 시각 지정 | `CAMPAIGN_SEND` | FR-CMP-09 |
-| `POST /api/campaigns/{campaignId}/cancel` | 작성 중·예약 발송 대기 캠페인 취소 (`USER_CANCELED`) | `CAMPAIGN_SEND` | F7 |
+| `PUT /api/campaigns/{campaignId}/schedule` | 예약 발송 시각 지정 · 다시 지정 | `CAMPAIGN_SEND` | FR-CMP-09, F56 |
+| `POST /api/campaigns/{campaignId}/cancel` | 작성 중·예약 발송 대기 캠페인 취소 (`USER_CANCELED`) | `CAMPAIGN_SEND` | F7 · F56 |
 | `GET /api/consent-reconfirm-targets` | 동의 재확인 대상 (2년 되기 30일 전부터) | `CAMPAIGN_VIEW` | FR-CMP-13 |
 | `GET /api/virtual-phone/messages?phone=` | 가상 수신함 (최신순) | `CAMPAIGN_SEND` | FR-CMP-16 |
 | `POST /api/virtual-phone/unsubscribe` | 가상 휴대폰의 [수신거부] | `CAMPAIGN_SEND` | FR-CMP-11·16 |
@@ -1314,6 +1314,31 @@
   - 발송 대상: 마케팅 동의 최신 행이 동의이고 삭제되지 않은 고객이면 미리보기와 같은 규칙으로 본문을 만든다(변수 치환 · 광고 표기, FR-CMP-04 · 05). 보낼 수 있으면 `PENDING`
   - 빠지는 고객은 `FAILED`와 사유로 남긴다: `마케팅 동의 철회` · `삭제된 고객` · `발송 불가`(변수 값 없음 · 2,000바이트 초과) (F51)
 - 캠페인의 발송 시각(`sentAt`)을 기록한다. 가상 발송기가 대기 행을 모두 처리하면 캠페인은 `SENT`가 된다 (F7). 모두 빠졌으면 바로 `SENT`
+- 다른 매장 · 없는 캠페인이면 `not_found` 404. 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
+
+**`PUT /api/campaigns/{campaignId}/schedule`** 예약 발송 지정 · 다시 지정 (FR-CMP-07 · 09, F7 · F56). `CAMPAIGN_SEND`. 성공하면 `204`.
+
+| 요청 필드 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `scheduledAt` | string | 예 | 예약 발송 시각 (2절 시각 형식). 지금보다 뒤 |
+
+- `작성 중`(`DRAFT`) · `예약 발송 대기`(`SCHEDULED`)일 때만 `SCHEDULED`로 바꾸고 시각을 기록한다 (조건부 UPDATE). 이미 예약된 캠페인은 같은 API로 시각을 다시 지정한다. 발송 중 · 발송 완료 · 취소면 `conflict` 409
+- `scheduledAt`이 없거나 지금보다 뒤가 아니면 `invalid` 400
+- 검토 기록이 없으면 `review_required` 409 (FR-CMP-06)
+- 예약 시각이 야간(F52)이면 즉시 발송과 같은 규칙으로 본다: 광고 캠페인이고 지정하는 지금 실제로 보낼 고객(대조군 · 빠질 고객 제외) 전원이 야간 광고 동의일 때만 허용하고, 아니면 `night_send_blocked` 409. 동의 재확인 안내 캠페인은 야간을 고를 수 없다 (FR-CMP-07 · 13)
+- 광고 캠페인인데 매장 정보의 전화번호 · 수신 거부 번호가 비었으면 `conflict` 409 (F47)
+- 일 발송 한도는 지정할 때 보지 않고 발송 시점에 본다
+- 다른 매장 · 없는 캠페인이면 `not_found` 404. 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
+
+예약 시각이 되면 (스케줄러, F56):
+
+- 서버가 30초마다 예약 시각이 지난 `SCHEDULED` 캠페인을 찾아, 캠페인마다 한 트랜잭션에서 즉시 발송과 같은 순서로 처리한다: 매장 행 잠금 → 대상 · 동의 재확인(F51) → 일 발송 한도(F54) → `SENDING` 조건부 UPDATE → 발송 기록. 그 사이 취소 · 즉시 발송된 캠페인은 조건부 UPDATE가 바꾼 행이 없어 건너뛴다
+- 야간 여부는 처리 시각이 아니라 예약 시각으로 판단한다. 야간 예약 광고 캠페인에서 발송 시점에 야간 광고 동의 최신 행이 동의가 아닌 고객은 그 고객만 `FAILED`(사유 `야간 광고 동의 없음`)로 남기고 나머지는 보낸다
+- 일 발송 한도를 넘거나 광고 캠페인인데 매장 전화번호 · 수신 거부 번호가 비었으면 발송 기록 없이 `CANCELED`로 바꾸고 취소 사유(`DAILY_LIMIT_EXCEEDED` · `SHOP_INFO_MISSING`, 3절)와 취소 시각을 남긴다. 다음 날로 미루거나 다시 시도하지 않는다 (F7)
+
+**`POST /api/campaigns/{campaignId}/cancel`** 캠페인 취소 (F7 · F56). `CAMPAIGN_SEND`. 본문 없음. 성공하면 `204`.
+
+- `작성 중` · `예약 발송 대기`만 `CANCELED`로 바꾸고 취소 사유 `USER_CANCELED`와 취소 시각을 남긴다 (조건부 UPDATE). 발송 중 · 발송 완료 · 이미 취소면 `conflict` 409
 - 다른 매장 · 없는 캠페인이면 `not_found` 404. 기능 키가 PIN으로 잠겨 있고 인증이 없으면 `pin_required` 403
 
 **`GET /api/consent-reconfirm-targets`** 동의 재확인 대상 (FR-CMP-13, D1, 결정 F45). `CAMPAIGN_VIEW`. 마케팅 동의 최신 행이 동의인 정상 고객 중 오늘(Asia/Seoul)이 재확인 기한 − 30일 이후인 고객을 기한이 이른 순으로 준다. 기한이 지나도 재확인 안내 발송에 성공할 때까지 남는다. 이 목록에서 고른 고객으로 동의 재확인 안내 캠페인을 만든다 (`POST /api/campaigns`, `CONSENT_RECONFIRM` 템플릿).
