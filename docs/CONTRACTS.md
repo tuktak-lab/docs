@@ -160,7 +160,7 @@
 | `POST /api/session/pin` | 잠긴 기능 PIN 인증 | 근무자 | FR-ACC-08 |
 | `DELETE /api/session/pin` | [잠금] | 근무자 | FR-ACC-08 |
 | `POST /api/password-reset` · `PUT /api/password-reset` | 재설정 메일 요청 · 새 비밀번호 설정 (P2) | 비로그인 | FR-ACC-06 |
-| `GET /api/virtual-mailbox` | 가상 메일함 (비밀번호 재설정 메일 확인, 개발 · 시연용) | 매장 세션 | FR-ACC-06 |
+| `GET /api/virtual-mailbox?email=` | 가상 메일함 (비밀번호 재설정 메일 확인, 개발 · 시연용) | 비로그인 | FR-ACC-06 |
 | `PUT /api/owner-pin` | 매장 계정 비밀번호를 다시 확인하고 원장 PIN 재설정 | 매장 세션 | FR-ACC-09 |
 | `GET /api/staff` | 활성 스탭 목록 (담당 스탭 선택용) | 근무자 | FR-RSV-01, FR-ACC-04 |
 | `GET /api/staff?includeInactive=true` | 스탭 관리 화면용 목록 (비활성 스탭 포함) | `OWNER_PIN` | FR-ACC-04, FR-SET-05 |
@@ -379,7 +379,12 @@
 - 없는 · 만료된(30분 지남) · 이미 쓴 토큰은 구분하지 않고 `invalid` 400, `details`의 `field`는 `token`
 - 성공하면 BCrypt로 저장하고(NFR-02), 로그인 실패 횟수 · 잠금을 풀고, 그 매장의 아직 안 쓴 다른 토큰도 쓸 수 없게 한다 (F49)
 
-**`GET /api/virtual-mailbox`** 가상 메일함 (FR-ACC-06, F49). 매장 세션. 세션 매장의 계정 이메일로 보낸 메일만 보낸 시각 최신순으로 준다. 개발 · 시연용이며 실제 메일은 오가지 않는다. 페이징은 1절 규칙(`size` 1~100, 기본 20), 3절 페이지 응답.
+**`GET /api/virtual-mailbox?email=`** 가상 메일함 (FR-ACC-06, F49 · F59). 비로그인. 그 이메일 주소로 보낸 메일만 보낸 시각 최신순으로 준다. 개발 · 시연용이며 실제 메일은 오가지 않는다. 3절 페이지 응답.
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `email` | string | 예 | 이메일 형식, 255자 이하 (`POST /api/password-reset`의 `email`과 같은 규칙) |
+| `page` · `size` | number | 아니오 | 1절 페이지 규칙. `size`는 1~100, 기본 20 |
 
 | 항목 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -388,7 +393,8 @@
 | `body` | string | 본문 (재설정 링크 포함) |
 | `sentAt` | string | 보낸 시각 (3절) |
 
-- 로그인하지 않았으면 `unauthorized` 401. 다른 매장 계정으로 온 메일은 보이지 않는다
+- 쿼리 값이 규칙에 맞지 않으면 `invalid` 400. 받은 메일이 없으면 빈 페이지. 다른 이메일 주소로 온 메일은 보이지 않는다
+- 이메일만 알면 그 주소로 온 재설정 링크를 볼 수 있다. 모의 데이터로만 시연하므로 받아들인 것이다 (F59)
 
 **`PUT /api/owner-pin`** 원장 PIN 재설정 (FR-ACC-09, F11 · F14). 매장 세션 (근무자 · PIN 인증 없어도 된다. 원장 PIN을 잊은 경우라서). 매장 계정 비밀번호를 다시 확인하고 원장 스탭의 PIN을 새로 정한다. 성공하면 `204`.
 
