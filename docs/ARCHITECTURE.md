@@ -295,7 +295,7 @@ erDiagram
 
 | 작업 | 근거 |
 | --- | --- |
-| 예약 발송 실행. 발송 시점에 수신 동의·대상 제외·일 발송 한도를 다시 검사 | FR-CMP-09 |
+| 예약 발송 실행 (30초마다). 발송 시점에 수신 동의·대상 제외·일 발송 한도를 다시 검사 | FR-CMP-09, F56 |
 | 가상 발송 결과 갱신 | FR-CMP-10 |
 | 야간에 접수된 수신 거부 처리 안내를 다음 08:00에 발송 | FR-CMP-07·11 |
 
@@ -303,12 +303,12 @@ erDiagram
 
 | 전이 | 하는 곳 | 방법 |
 | --- | --- | --- |
-| `DRAFT` → `SCHEDULED` | 예약 발송 지정 | 조건부 UPDATE |
+| `DRAFT`·`SCHEDULED` → `SCHEDULED` | 예약 발송 지정 · 다시 지정 (F56) | 조건부 UPDATE |
 | `DRAFT`·`SCHEDULED` → `SENDING` | 즉시 발송, 예약 시각이 된 스케줄러 | `UPDATE campaign SET status = 'SENDING' WHERE id = ? AND status IN ('DRAFT','SCHEDULED')`. 바뀐 행이 1이 아니면 `conflict`(409). 같은 트랜잭션에서 재검사(야간 · 한도 · 동의)와 고객별 `campaign_message`(`PENDING`, 대조군 행) 생성. 고객은 캠페인을 만들 때 저장한 `campaign_target`에서 읽는다 (F41) |
 | `campaign_message` `PENDING` → `SENT`·`FAILED` | 가상 발송 결과 갱신 스케줄러 | 행마다 조건부 UPDATE (`status = 'PENDING'`일 때만) |
 | `SENDING` → `SENT` | 같은 스케줄러 | 남은 `PENDING`이 없을 때 조건부 UPDATE |
 | `DRAFT`·`SCHEDULED` → `CANCELED` | 사용자 취소 (`USER_CANCELED`) | 조건부 UPDATE |
-| `SENDING` → `CANCELED` | 예약 발송 재검사에서 일 발송 한도 초과 (`DAILY_LIMIT_EXCEEDED`) | 같은 트랜잭션에서 발송 기록 없이 정상 커밋. 한도 검사·발송 기록 생성은 매장 행 잠금(`SELECT … FOR UPDATE`) 안에서 |
+| `SCHEDULED` → `CANCELED` | 예약 시각 재검사에서 일 발송 한도 초과 (`DAILY_LIMIT_EXCEEDED`) · 광고 표기용 매장 정보 없음 (`SHOP_INFO_MISSING`) (F56) | 조건부 UPDATE (`status = 'SCHEDULED'`), 발송 기록 없이 정상 커밋. 한도 검사·발송 기록 생성은 매장 행 잠금(`SELECT … FOR UPDATE`) 안에서 |
 
 - 두 번째 방어선: `campaign_message`에 (campaign_id, customer_id) 고유 제약.
 - 복구: `SENDING` 전환과 발송 기록 생성이 한 트랜잭션이라, 커밋 전에 프로세스가 끝나면 상태가 그대로 남는다. 커밋 뒤에 끝나면 `PENDING` 기록이 남고 재시작한 스케줄러가 이어서 처리한다. 메시지 큐는 두지 않는다 (명세서 6장 「가정」).
