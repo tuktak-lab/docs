@@ -1037,6 +1037,7 @@
 | `visitId` | number | 연결된 방문 ID |
 
 - 고객 없는 예약(시술 마감 카드로만 완료, E3) · 확정이 아닌 예약이면 `conflict` 409
+- 예약일(Asia/Seoul)이 오늘보다 늦으면 `conflict` 409 (F71)
 
 **`PATCH /api/visits/{visitId}`** 방문의 실제 시술 · 시술별 담당 스탭 · 주기 계산 제외 수정 (FR-VIS-03 · 05). 기능 키 `CUSTOMER_EDIT`. 성공하면 `204`. 고객이 있는 방문이면 같은 트랜잭션에서 그 고객의 예측을 다시 계산한다. 기준 방문일이 앞당겨지면 예측 스냅샷은 F62대로 처리한다.
 
@@ -1087,6 +1088,7 @@
 
 - 고객 없는 예약을 고객 연결 없이(`noCustomer` 없이) 마감하면 `conflict` 409. 먼저 `PUT /api/reservations/{reservationId}/customer`로 연결한다
 - 취소 · 노쇼 예약이면 `conflict` 409 (FR-PAY-01)
+- 예약일(Asia/Seoul)이 오늘보다 늦은 확정 예약이면 `conflict` 409. 오늘 예약은 시작 시각 전이어도 마감할 수 있다 (F71)
 
 **`PATCH /api/payments/{paymentId}`** 결제 수정 (FR-PAY-02). 기능 키 `PAYMENT_EDIT`. 성공하면 `204`.
 
