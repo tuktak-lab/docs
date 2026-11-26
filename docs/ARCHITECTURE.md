@@ -309,7 +309,7 @@ erDiagram
 | `campaign_message` `PENDING` → `SENT`·`FAILED` | 가상 발송 결과 갱신 스케줄러 | 행마다 조건부 UPDATE (`status = 'PENDING'`일 때만) |
 | `SENDING` → `SENT` | 같은 스케줄러 | 남은 `PENDING`이 없을 때 조건부 UPDATE |
 | `DRAFT`·`SCHEDULED` → `CANCELED` | 사용자 취소 (`USER_CANCELED`) | 조건부 UPDATE |
-| `SCHEDULED` → `CANCELED` | 예약 시각 재검사에서 일 발송 한도 초과 (`DAILY_LIMIT_EXCEEDED`) · 광고 표기용 매장 정보 없음 (`SHOP_INFO_MISSING`) (F56) | 조건부 UPDATE (`status = 'SCHEDULED'`), 발송 기록 없이 정상 커밋. 한도 검사·발송 기록 생성은 매장 행 잠금(`SELECT … FOR UPDATE`) 안에서 |
+| `SCHEDULED` → `CANCELED` | 예약 시각 재검사에서 일 발송 한도 초과 (`DAILY_LIMIT_EXCEEDED`) · 광고 표기용 매장 정보 없음 (`SHOP_INFO_MISSING`) (F56) · 처리 시각이 야간인 동의 재확인 안내 캠페인 (`NIGHT_TIME`, F67) | 조건부 UPDATE (`status = 'SCHEDULED'`), 발송 기록 없이 정상 커밋. 한도 검사·발송 기록 생성은 매장 행 잠금(`SELECT … FOR UPDATE`) 안에서 |
 
 - 두 번째 방어선: `campaign_message`에 (campaign_id, customer_id) 고유 제약.
 - 복구: `SENDING` 전환과 발송 기록 생성이 한 트랜잭션이라, 커밋 전에 프로세스가 끝나면 상태가 그대로 남는다. 커밋 뒤에 끝나면 `PENDING` 기록이 남고 재시작한 스케줄러가 이어서 처리한다. 메시지 큐는 두지 않는다 (명세서 6장 「가정」).
