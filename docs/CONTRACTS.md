@@ -91,6 +91,7 @@
 | 메뉴 예측 속성 | `NORMAL` `EXCLUDE` `END_SIGNAL` | 5장 기재 |
 | 철회 경로 | `UNSUBSCRIBE`(수신 거부) `DIRECT`(직접 철회) | 제안 |
 | 시술 카테고리 | `NAIL` `LASH` `WAXING` `SEMI_PERMANENT` `ETC` | 제안 |
+| 매장 업종 | 시술 카테고리와 같은 5개 값 `NAIL` `LASH` `WAXING` `SEMI_PERMANENT` `ETC` (여러 개 켠다. 가입 때 고르고 매장 설정에서 켜고 끈다. 끄면 시술 메뉴 · 기본 주기 설정 화면에서만 숨기고, 기존 메뉴 · 방문 · 예측 · 캠페인 데이터는 그대로 둔다. 기존 매장은 5개 모두 켜 둔다) | 제안 (FR-ACC-01, FR-SET-02) |
 | 예약 상태 | `CONFIRMED` `COMPLETED` `CANCELED` `NO_SHOW` | 제안 (C8) |
 | 예약 경로 | `NAVER` `KAKAO` `PHONE` `STORE` `ETC` | 제안 (E3) |
 | 유입 경로 | `INSTAGRAM` `NAVER_SEARCH` `REFERRAL` `PASSING_BY` `ETC` | 제안 (FR-CUS-01) |
@@ -293,6 +294,10 @@
 | `shopName` | string | 예 | 1~100자 |
 | `ownerName` | string | 예 | 원장 스탭 이름, 1~50자 |
 | `ownerPin` | string | 예 | 숫자 4~6자리 (FR-ACC-03) |
+| `businessNumber` | string | 예 | [제안] 사업자등록번호 `000-00-00000` 형식(숫자 10자리). 모의 데이터로만 받고 실제 사업자 정보는 받지 않는다. 형식만 검사하고 진위 · 중복은 보지 않는다 |
+| `phone` | string | 예 | [제안] 매장 연락처. `PUT /api/shop`의 `phone`과 같은 형식. 가입하면 매장 정보의 연락처로 저장한다 (FR-SET-01) |
+| `address` | string | 예 | [제안] 매장 주소, 1~200자 |
+| `industries` | string[] | 예 | [제안] 켜 둘 매장 업종(3절 「매장 업종」), 1개 이상 중복 선택, 같은 값 두 번 없이. 틀리면 `invalid` 400. 가입 뒤에는 `PUT /api/shop`으로 켜고 끈다 |
 
 | 응답 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -1626,6 +1631,7 @@
 | `unsubscribeNumber` | string \| null | 수신 거부 번호 |
 | `openingHours` | object[] | 요일별 영업시간 7개, `MONDAY`부터 `SUNDAY` 순서. `{ "dayOfWeek": string, "open": string \| null, "close": string \| null }`. 시각은 3절 「시:분」, 정기 휴무인 요일은 `open` · `close`가 `null` (C7) |
 | `retentionYears` | number | 보관 기간(년). 동의서 고지 문구에 쓴다 (FR-SET-06, FR-CUS-01, F40). 바꾸는 곳은 `PUT /api/settings` |
+| `industries` | string[] | [제안] 켜 둔 매장 업종(3절 「매장 업종」), 3절 순서. 1개 이상. 시술 메뉴 · 기본 주기 설정 화면이 이 카테고리만 보여 준다. 기존 매장은 5개 모두 |
 
 - 근무자가 없으면 `worker_required` 403
 
@@ -1636,6 +1642,7 @@
 | `name` | string | 예 | 매장명. 1~100자, 앞뒤 공백을 빼고 저장 |
 | `phone` · `senderNumber` · `unsubscribeNumber` | string \| null | 아니요 | 매장 연락처 · 발신번호 · 수신 거부 번호. 국내 전화번호(0으로 시작하는 번호 예: `02-000-0000` `010-0000-0000` `080-000-0000`, 대표번호 `1588-0000`처럼 15xx · 16xx · 18xx). 하이픈은 있어도 없어도 되고 보낸 그대로 저장. 빼거나 빈 값이면 `null` (F39, NFR-08) |
 | `openingHours` | object[] | 예 | 요일별 영업시간 7개, 요일마다 한 번씩. `{ "dayOfWeek": string, "open": string \| null, "close": string \| null }`. 시각은 3절 「시:분」이고 30분 단위(`:00` · `:30`), `open` < `close`(자정 넘김 없음). 둘 다 `null`이면 정기 휴무, 하나만 `null`이면 `invalid` (C7, F39) |
+| `industries` | string[] | 아니요 | [제안] 켜 둘 매장 업종(3절 「매장 업종」). 보내면 그 목록으로 바꾸고, 빼면 바꾸지 않는다. 1개 이상, 같은 값 두 번 없이, 5개 값만. 어기면 `invalid` 400. 끈 업종의 메뉴 · 방문 · 예측 · 캠페인은 그대로 둔다 (화면에서만 숨김) |
 
 | 응답 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -1697,6 +1704,7 @@
 **`PUT /api/category-cycles`** 카테고리 기본 주기 수정 (FR-SET-02). `OWNER_PIN`. 위와 같은 모양의 배열을 통째로 보낸다. 성공하면 `204`.
 
 - 카테고리 5개가 한 번씩 있어야 하고, `1 ≤ minDays ≤ maxDays`. 어기면 `invalid` 400
+- [제안] 꺼 둔 업종(`GET /api/shop`의 `industries`에 없는 카테고리)도 `GET` 응답에 그대로 들어가고 `PUT`에도 5개를 모두 보낸다. 꺼 둔 업종을 가리는 것은 화면이고(숨기기만, `GET /api/service-menus`도 같음), 가린 카테고리는 값을 그대로 다시 보낸다
 - 값이 바뀐 카테고리는 그 카테고리에 메뉴 없는 방문이 있는 고객의 예측을 같은 트랜잭션에서 다시 계산한다 (FR-SET-02, FR-PRD-01)
 
 **`GET /api/day-offs?from=&to=`** 매장 · 스탭 임시 휴무일 (FR-SET-07). 근무자. 캘린더가 휴무일을 고를 수 없게 표시하고(FR-RSV-02), 설정 화면이 목록으로 보여 준다. 페이징 없음 (F22).
