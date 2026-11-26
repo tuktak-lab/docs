@@ -163,7 +163,7 @@
 | `MYSQL_DATABASE` · `MYSQL_USER` · `MYSQL_PASSWORD` | 로컬 MySQL 생성 + 백엔드 DB 접속 | MySQL 공식 이미지가 읽는 이름을 백엔드도 그대로 씀 |
 | `MYSQL_ROOT_PASSWORD` | 로컬 MySQL | 백엔드는 쓰지 않음 |
 | `MYSQL_HOST` · `MYSQL_PORT` | 백엔드 DB 접속 | 선택. 없으면 `localhost` · `3306` |
-| `APP_STORAGE_DIR` · `APP_STORAGE_SIGNING_KEY` | 사진 저장소 | 비공개 디렉터리 경로와 서명 URL용 HMAC 비밀키 (결정체크리스트 F16, `docs/ARCHITECTURE.md` 「7」). 디렉터리는 저장소에 커밋하지 않는다 |
+| `APP_STORAGE_DIR` · `APP_STORAGE_SIGNING_KEY` | 사진 저장소 | 비공개 디렉터리 경로와 서명 URL용 HMAC 비밀키 (결정체크리스트 F16, `docs/ARCHITECTURE.md` 「7」). 디렉터리는 저장소에 커밋하지 않는다. **키는 32바이트(UTF-8) 이상**이어야 하고, 비었거나 짧으면 백엔드가 시작하지 않는다(`APP_STORAGE_SIGNING_KEY는 32바이트 이상이어야 합니다`). `.env.example`을 복사만 하면 이 상태라 값을 채워야 한다 (Keepsy #426) |
 | `MYSQL_TEST_HOST` · `_PORT` · `_DATABASE` · `_USER` · `_PASSWORD` | 백엔드 테스트(`./gradlew test` · `build`) | 선택. 기본 `127.0.0.1` · `3307` · `keepsy_test` · `keepsy_test` · `keepsy-test`(compose `mysql-test`용 임시 값). DB 이름이 `_test`로 끝나지 않거나 접속할 수 없으면 테스트가 바로 실패한다. 테스트는 사진 경로 · 서명 키를 테스트 값으로 고정한다 (`TestDatabaseGuard`). CI는 이 이름으로 서비스 컨테이너를 가리킨다 |
 | `MYSQL_DEMO_HOST` · `_PORT` · `_DATABASE` · `_USER` · `_PASSWORD` | 시드 적재(`./gradlew seedDemo`) | 선택. 기본 `127.0.0.1` · `3308` · `keepsy_demo` · `keepsy_demo` · `keepsy-demo`(compose `mysql-demo`용 임시 값). DB 이름은 `_demo`로 끝나야 한다 |
 | `MYSQL_TEST_PORT` · `MYSQL_DEMO_PORT` | `compose.yaml`의 테스트 · 데모 DB 포트 | 선택. 기본 `3307` · `3308` |
@@ -212,9 +212,51 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 | 프론트 단위 테스트 | `npm test` (`frontend/`에서, `node --test`로 `src/**/*.test.ts`) | 확인됨 (2026-11-26, 143개 통과) |
 | 프론트 타입 검사 | `npm run typecheck` (`frontend/`에서). `build` 또는 `dev`를 한 번 돌린 뒤에 실행한다 | 확인됨 (2026-11-26, `build` 뒤 통과. 새로 받은 checkout에서 먼저 돌리면 생성 파일 `next-env.d.ts`가 없어 이미지 모듈 오류로 실패) |
 | 시드 데이터 적재 (C17) | 데모 DB를 띄운 뒤 `backend/`에서 `./gradlew seedDemo -Pseed.scale=perf -Pseed.until=<시연일>`. 규모 `small` · `demo` · `perf`, 고정 난수 `-Pseed.random=…`(기본 20261211), 다시 만들기 `-Pseed.recreate=true`(데모 매장 행만 지움). DB 이름이 `_demo`로 끝나지 않으면 거부 | 확인됨 (2026-11-25, Keepsy #380. perf 규모 약 12분 25초) |
+| 발표용 데모 DB 복원 (팀 공유 덤프) | 아래 「발표용 데모 DB 복원」 | 확인됨 (2026-11-26, Windows 11 · PowerShell, Keepsy #426) |
 | 리허설용 DB에 시드 적재 | 아래 「리허설용 DB」 | 확인 전 |
 
 로컬에서 여는 순서: ① 개발 DB 띄우기 → ② 백엔드 실행(8080) → ③ 프론트 개발 서버 실행(3000) → 브라우저에서 `http://127.0.0.1:3000`. 시연은 ①을 데모 DB로, ②를 「백엔드를 데모 DB로 실행」으로 바꾼다.
+
+**발표용 데모 DB 복원 (확인됨 2026-11-26, Keepsy #426)**: 팀이 공유한 덤프(`keepsy-demo-team.sql`, perf · `seed.random=20261211` · `seed.until=2026-12-11`)를 데모 DB에 복원한다. 시드를 다시 만들지 않으므로 `seedDemo`를 `keepsy_demo`에 실행하지 않는다.
+
+- 사전 준비: Docker Desktop(Windows는 WSL2도 필요하고 설치 뒤 재부팅), Java 21, Node 24. 공유 zip은 **저장소 밖 폴더**에 푼다(저장소 안에 두면 untracked 파일로 잡혀 커밋될 수 있다). `.env`의 `APP_STORAGE_DIR`(저장소 밖 폴더) · `APP_STORAGE_SIGNING_KEY`(32바이트 이상, 5장)를 채운다.
+- 체크섬: `keepsy-demo-team.sql`의 SHA-256이 `keepsy-demo-team.sql.sha256`과 같아야 한다. 다르면 복원하지 않는다 (PowerShell `Get-FileHash … -Algorithm SHA256`, Git Bash `sha256sum`).
+- 데모 DB(`keepsy_demo`)에 이미 테이블이 있으면 덮어쓰지 말고 먼저 백업 여부를 정한다. PowerShell은 `<` 입력 리다이렉션이 안 되므로 파일을 컨테이너에 넣고 컨테이너 안에서 복원한다.
+
+```bash
+# 저장소 루트에서
+docker compose --profile demo up -d --wait mysql-demo
+docker exec keepsy-mysql-demo mysql -uroot -pkeepsy-demo-root -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='keepsy_demo'"   # 0이어야 복원
+docker cp <공유 폴더>/keepsy-demo-team.sql keepsy-mysql-demo:/tmp/keepsy-demo-team.sql
+docker exec keepsy-mysql-demo sh -c "mysql -uroot -pkeepsy-demo-root keepsy_demo < /tmp/keepsy-demo-team.sql"
+docker exec keepsy-mysql-demo rm /tmp/keepsy-demo-team.sql
+```
+
+복원 뒤 건수 (이 체크섬의 파일 기준: SHA-256 `58934852…a403b2`, 덤프 2026-11-26 14:23:40). 경고 표시를 켜고 별도 DB에 한 번 더 복원해 오류 없이 26개 테이블이 모두 들어오는 것을 확인한 값이다(경고는 `int(11)` 표기 사용 중단 안내 1681뿐). 덤프가 바뀌면 이 표를 새 체크섬 기준으로 다시 적는다.
+
+| 표 | 건수 | 표 | 건수 |
+| --- | ---: | --- | ---: |
+| customer | 3,000 | campaign_message | 10,305 |
+| visit | 19,061 | prediction_snapshot | 17,197 |
+| reservation | 20,445 | customer_prediction | 3,716 |
+| payment | 19,197 | staff | 5 |
+| campaign | 73 | photo | 0 |
+
+- `flyway_schema_history`는 12행, 모두 `success=1`, 마지막 version 12. `version`은 문자열이라 `MAX(version)` 대신 `installed_rank`로 정렬해 본다.
+- photo 0은 정상이다. 시드 생성기는 사진 행을 만들지 않는다(`PHOTO`는 동의 항목 이름으로만 나온다).
+- `access_log`는 덤프에 39행이 들어 있고, 백엔드로 화면 · API를 쓰면 늘어난다. 처음 상태가 필요하면 백엔드를 멈추고 `keepsy_demo`만 지운 뒤(`DROP DATABASE` → `CREATE DATABASE … utf8mb4_0900_ai_ci` → `GRANT ALL ON keepsy_demo.* TO 'keepsy_demo'@'%'`) 다시 복원한다. 볼륨을 지우는 `docker compose down -v`는 쓰지 않는다.
+
+데모 매장 로그인은 `demo@example.com` / `keepsy-demo-1234`, 근무자 PIN은 아래와 같다 (모의 데이터, 2026-11-26 근무자 전환 API로 확인).
+
+| PIN | 스탭 |
+| --- | --- |
+| 1111 | 원장 (잠긴 기능 · 원장 PIN) |
+| 2222 | 네일 디자이너 |
+| 3333 | 속눈썹 디자이너 |
+| 4444 | 왁싱 디자이너 |
+| 5555 | 반영구 디자이너 |
+
+이 데이터는 2026-12-11(발표일) 기준이라, 그 전에 열면 12/10까지의 방문 같은 「미래」 데이터가 보이고 대시보드의 「오늘」은 실제 날짜를 쓴다. 12/11 당일 확정 예약은 21건이다.
 
 **리허설용 DB (확인 전)**: 발표용 데모 DB(`keepsy_demo`, perf · `seed.random=20261211` · `seed.until=2026-12-11`)는 그대로 두고, 리허설 날짜에 맞춘 시드는 같은 컨테이너의 다른 DB에 넣는다. `seedDemo`는 `MYSQL_DEMO_DATABASE`로 DB를 바꿀 수 있다(5장). 데모 컨테이너는 이름이 고정이라 하나 더 띄울 수 없다.
 
