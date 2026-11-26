@@ -1087,6 +1087,7 @@
 
 - 고객 없는 예약을 고객 연결 없이(`noCustomer` 없이) 마감하면 `conflict` 409. 먼저 `PUT /api/reservations/{reservationId}/customer`로 연결한다
 - 취소 · 노쇼 예약이면 `conflict` 409 (FR-PAY-01)
+- 예약일(Asia/Seoul)이 오늘보다 늦은 확정 예약이면 `conflict` 409. 오늘 예약은 시작 시각 전이어도 마감할 수 있다 (F71)
 
 **`PATCH /api/payments/{paymentId}`** 결제 수정 (FR-PAY-02). 기능 키 `PAYMENT_EDIT`. 성공하면 `204`.
 
