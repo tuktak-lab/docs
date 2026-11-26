@@ -51,7 +51,7 @@
 ```text
 backend/        Spring Boot (Gradle). 패키지는 4장
 frontend/       Next.js (TypeScript). 구조는 4장
-compose.yaml    로컬 MySQL 8
+compose.yaml    로컬 MySQL 8.4: 개발 mysql(3306) · 테스트 mysql-test(3307, profile test) · 데모 mysql-demo(3308, profile demo)
 .env.example    환경 변수 이름과 설명 (docs/DEVELOPMENT.md 「5」)
 ```
 
@@ -60,11 +60,15 @@ compose.yaml    로컬 MySQL 8
 배포하지 않고 로컬에서 프론트와 백엔드 서버를 따로 띄운다 (A14 추가 결정).
 
 ```text
-브라우저 ── http://localhost:3000 ──▶ Next.js 개발 서버 (화면)
+브라우저 ── http://127.0.0.1:3000 ──▶ Next.js 개발 서버 (화면)
                                        │ /api/** 만 넘김 (rewrites)
                                        ▼
-                                     Spring Boot :8080 (API) ──▶ MySQL :3306 (Docker Compose)
+                                     Spring Boot 127.0.0.1:8080 (API) ──▶ MySQL 127.0.0.1:3306 (Docker Compose)
+
+백엔드 테스트 ──▶ 테스트 DB 127.0.0.1:3307 (tmpfs)      시연 · seedDemo ──▶ 데모 DB 127.0.0.1:3308
 ```
+
+- 백엔드 · MySQL · 프론트 개발 서버는 `127.0.0.1`에만 연다 (F64). 실행 명령과 순서는 `docs/DEVELOPMENT.md` 「6」.
 
 - 브라우저는 3000번만 연다. `/api/**` 요청은 Next.js가 8080으로 넘기므로, 브라우저 입장에서는 같은 출처다. 세션 쿠키·CSRF가 그대로 동작하고 CORS 설정이 필요 없다.
 - rewrites는 개발 모드에서만 켠다. 정적 빌드(`next build`)에는 rewrites가 들어가지 않기 때문이다.
@@ -106,7 +110,7 @@ compose.yaml    로컬 MySQL 8
 | `dashboard` | DSH | 대시보드 조회 조합 |
 | `search` | SCH | 고객 통합 검색, 미매칭 검색어 (기능 키워드 사전은 프론트 정적 파일) |
 | `settings` | SET | 시술 메뉴, 휴무일 (`shop` 테이블 칸은 `account`, F21) |
-| `common` | NFR | 보안 설정, 권한 검사, 오류 응답, 접근 로그, 시간대, 정적 화면 경로 설정 |
+| `common` | NFR | 보안 설정, 권한 검사, 오류 응답, 접근 로그, 시간대, 정적 화면 경로 설정 (3장 「서버 하나로 띄우기」를 할 때만, 지금은 없음) |
 
 - 계층은 Controller → Service → Repository (`docs/DEVELOPMENT.md` 「4」).
 - 패키지 사이는 ID 참조와 Port로만 연결하고, 화면용 도메인 횡단 조회는 조회 전용 Repository에서 DTO Projection으로 한다 (`docs/DEVELOPMENT.md` 「4」 「도메인 연동」, 2026-11-23 팀 결정).
@@ -118,13 +122,16 @@ compose.yaml    로컬 MySQL 8
 ```text
 frontend/
   src/app/                 화면 경로별 page.tsx (아래 표)
+  src/app/(shop)/layout.tsx  매장 화면 공통 셸(사이드바 · 상단바). 그룹 이름은 URL에 들어가지 않음 (Keepsy #393)
   src/components/          공용 UI: 레이아웃, PIN 입력 창, 표, 페이지 이동
-  src/features/<영역>/      영역별 화면 조각과 API 호출 (백엔드 패키지와 같은 이름)
+  src/features/<영역>/      영역별 화면 조각과 API 호출 (대체로 백엔드 패키지 이름, 랜딩은 landing)
+  src/hooks/useLoad.ts     「처음 불러오기 + 다시 불러오기」, 마지막 요청의 응답만 반영 (src/lib/latest.ts, Keepsy #344)
   src/lib/api.ts           fetch 래퍼: CSRF 헤더, 오류 code 처리
+  src/lib/*.ts             화면 계산 규칙. 옆의 *.test.ts를 `npm test`(node --test)로 검사
   public/search-keywords.json   기능 검색 키워드·동의어 사전 (FR-SCH-02 "정적 파일")
 ```
 
-**모든 화면에 공통**: 좌측 메뉴 7개(기획서 8장), 상단 검색창(`/`·`Ctrl+K`, FR-SCH-01), 현재 근무자 이름을 크게 표시(FR-ACC-10), PIN 인증 중이면 인증 스탭 이름과 [잠금] 버튼(FR-ACC-08).
+**매장 화면(`(shop)` 그룹)에 공통**: 셸이 없는 화면은 랜딩(`/`) · 로그인 · 가입 · 근무자 전환 · 비밀번호 재설정 · 가상 메일함 · 동의 태블릿 · 디자인 시스템이다. 좌측 메뉴 7개(기획서 8장), 상단 검색창(`/`·`Ctrl+K`, FR-SCH-01), 현재 근무자 이름을 크게 표시(FR-ACC-10), PIN 인증 중이면 인증 스탭 이름과 [잠금] 버튼(FR-ACC-08).
 
 **API 호출 규칙** (`src/lib/api.ts` 한곳에서 처리):
 
@@ -134,7 +141,8 @@ frontend/
 | `worker_required` | `/shift`(근무자 PIN)로 이동 |
 | `pin_required` | PIN 입력 창 → 인증되면 같은 요청을 다시 보냄 |
 | `owner_pin_required` | 원장 PIN 입력 창 (`message`를 함께 표시, 예: 예약 제한 사유) |
-| 그 밖의 code | `message`를 그대로 보여 줌 |
+| `csrf_invalid` | 토큰 쿠키를 다시 읽어 한 번만 다시 보냄 |
+| 그 밖의 code · 네트워크 실패(`network_error`) · 읽을 수 없는 응답(`invalid_response`) | `message`를 그대로 보여 줌. 화면이 오류를 직접 보여 줄 때는 `silent` 옵션으로 끔 |
 
 - 연락처 마스킹은 서버가 한다 (NFR-04). 화면에서 다시 가리거나 풀지 않는다.
 - 날짜·시각은 Asia/Seoul로 표시한다 (NFR-12).
@@ -145,12 +153,13 @@ frontend/
 
 | 경로 | 화면 | 기능 키 | 요구사항 |
 | --- | --- | --- | --- |
+| `/` | 로그인 전 소개(랜딩) (Keepsy #392) | 비로그인 | — |
 | `/signup` | 매장 가입 | 비로그인 | FR-ACC-01 |
 | `/login` | 매장 로그인 | 비로그인 | FR-ACC-02 |
 | `/password-reset` | 비밀번호 재설정 (P2) | 비로그인 | FR-ACC-06 |
 | `/virtual-mailbox` | 가상 메일함 (개발 · 시연용, F59) | 비로그인 | FR-ACC-06 |
 | `/shift` | 근무자 PIN 입력·전환 | 매장 세션 | FR-ACC-10 |
-| `/dashboard` | CRM 대시보드 (`/`도 여기로) | `DASHBOARD_SEARCH` (영역별 `INSIGHT`·`CAMPAIGN_VIEW`) | FR-DSH-01~06 |
+| `/dashboard` | CRM 대시보드 | `DASHBOARD_SEARCH` (영역별 `INSIGHT`·`CAMPAIGN_VIEW`) | FR-DSH-01~06 |
 | `/reservations` | 스탭별 주간 캘린더, 예약 등록·수정 (`?view=day` 일간 보기 P2) | `RESERVATION` | FR-RSV-01~05 |
 | `/reservations/detail?id=` | 예약 상세, 고객 없는 예약의 [고객 연결] | `RESERVATION` | FR-DSH-01, FR-RSV-03 |
 | `/reservations/closing?id=` | 시술 마감 카드 | `RESERVATION` | FR-PAY-04, FR-VIS-05 |
@@ -188,26 +197,34 @@ erDiagram
     customer ||--o{ customer_prediction : "카테고리별"
     customer ||--o{ prediction_snapshot : ""
     customer ||--o{ consent : "이력"
+    consent |o--o{ consent : "정정 대상 (F44)"
     customer ||--o{ preference_tag : ""
     customer ||--o{ consult_note : ""
     customer |o--o{ reservation : "고객 없는 예약은 비움"
     customer |o--o{ visit : "고객 없음 마감은 비움"
     staff ||--o{ reservation : "담당"
-    reservation ||--|{ reservation_service : "예정 시술 1개 이상"
+    reservation ||--o{ reservation_service : "예정 시술 (1개 이상은 앱 규칙)"
     service_menu ||--o{ reservation_service : ""
     visit |o--o{ reservation : "완료 시 연결"
     reservation ||--o{ payment : "결제는 예약에서만"
-    visit ||--o{ payment : ""
+    visit |o--o{ payment : "방문 삭제 시 비움 (F8)"
     visit ||--o{ visit_service : "실제 시술"
+    reservation |o--o{ visit_service : "가져온 방문은 비움"
     service_menu |o--o{ visit_service : "가져온 방문은 비움"
     staff |o--o{ visit_service : "시술 담당"
     visit ||--o{ photo : ""
+    visit ||--o{ visit_note : "방문 메모 (F1)"
+    staff ||--o{ visit_note : "작성"
     message_template ||--o{ campaign : ""
+    campaign ||--o{ campaign_target : "만들 때 고른 대상 (F41)"
+    customer ||--o{ campaign_target : ""
     campaign |o--o{ campaign_message : "수신 거부 안내는 비움"
     customer ||--o{ campaign_message : ""
+    campaign_message |o--o{ reservation_service : "귀속 (F15)"
+    campaign_message |o--o{ visit_service : "귀속 (F15)"
 ```
 
-주요 관계만 그렸다. `shop`과의 관계는 모든 업무 테이블에 있고(5장), 작성·처리 스탭(상담 메모, 동의, 캠페인 검토자)과 `payment.customer_id`, `access_log`·`search_miss_log`는 생략했다. 그림의 관계는 DB 외래 키 기준이다. 서로 다른 패키지(4장) 사이의 관계는 JPA에서 객체로 매핑하지 않고 ID로 참조한다 (`docs/DEVELOPMENT.md` 「4」 「도메인 연동」).
+주요 관계만 그렸다. `shop`과의 관계는 모든 업무 테이블에 있고(5장), 작성·처리 스탭(상담 메모, 동의, 캠페인 검토자)과 `payment.customer_id`, `access_log`·`search_miss_log`, 매장만 참조하는 `password_reset_token`·`virtual_mail`은 생략했다. 그림의 관계는 DB 외래 키 기준이다. 서로 다른 패키지(4장) 사이의 관계는 JPA에서 객체로 매핑하지 않고 ID로 참조한다 (`docs/DEVELOPMENT.md` 「4」 「도메인 연동」).
 
 ### 구현 메모
 
@@ -224,6 +241,9 @@ erDiagram
 | 로그인·PIN 실패 잠금 상태 | 실패 횟수·잠금 해제 시각을 `shop`에 둔다 (서버 재시작 뒤에도 유지). 로그인·원장 PIN 재설정의 비밀번호 재확인·PIN 입력은 매장 행을 `SELECT … FOR UPDATE`로 잠근 한 트랜잭션에서 잠금 확인 → 검증 → 횟수 갱신을 한다 (F11·F14). 비밀번호 재설정 토큰은 `password_reset_token` 표에 해시로 두고, 사용은 `사용 시각 IS NULL AND 만료 시각 > now` 조건부 UPDATE로 한 번만 성공시킨다 | [확정] F14 |
 | 스키마 관리 | Flyway migration 파일(`V{n}__{설명}.sql`)로 관리한다. 이미 적용된 파일은 고치지 않고 새 버전을 더한다. `ddl-auto`로 테이블을 만들지 않는다 | [확정] Flyway (A14) / [제안] 운영 규칙 |
 | migration 버전 번호 | 여러 사람이 동시에 만들어 번호가 겹치지 않도록 첫 스키마는 이슈별로 미리 정한다: V1 매장·스탭·휴무일·시술 메뉴(Keepsy #6), V2 고객·동의·취향 태그·상담 메모(#7), V3 예약·방문·시술 항목·결제·사진(#8), V4 예측·예측 스냅샷(#9), V5 템플릿·캠페인·캠페인 메시지(#10), V6 접근 로그·미매칭 검색어 로그(#11). 그 뒤 migration은 V7부터 `main`에 머지되는 순서로 번호를 붙이고, 머지 전에 `main`의 마지막 번호를 확인해 겹치면 올린다. 뒤 번호 테이블을 가리키는 외래 키(예: V3 `reservation_service`·`visit_service`의 귀속 발송 ID → V5 `campaign_message`)는 뒤 번호 파일에서 `ALTER TABLE`로 추가한다. 첫 스키마 PR은 V1→V6 순서로 머지한다. 순서가 어긋나 로컬 DB에서 Flyway 검증이 실패하면 로컬 DB를 다시 만든다(`docker compose down -v`, 로컬 데이터 삭제) | 2026-11-23 팀 결정 |
+| V7 이후 migration | V7 `campaign_target`(F41), V8 `consent.corrects_consent_id`(F44), V9 `campaign_message.send_after`(F48), V10 `password_reset_token` · `virtual_mail`(F14 · F49), V11 `prediction_snapshot.churn_signal_days`(F57), V12 인덱스 2개(8장). 개발 · 데모 DB 볼륨이 따로 있으므로(3장) `down -v`처럼 볼륨을 모두 지우는 명령은 데모 데이터도 지운다. 지울 볼륨을 확인하고 필요한 것만 지운다 (`docs/DEVELOPMENT.md` 「6」) | 구현: Keepsy main (V1~V12) |
+| 잠금 순서 | 업무별로 코드에서 확인한 잠금 획득 순서. 교착이 없다는 증명은 아니고, 잠금 대기 시간 초과 · 교착은 `conflict` 409로 응답하고 서버가 다시 시도하지 않는다 (F63). ① 시술 마감: 고객 → 예약 → 방문. 고객 ID를 잠그기 전에 따로 읽고, 잠근 뒤 다시 비교해 다르면 `conflict`(그사이 고객이 연결되면 잠근 고객과 실제 고객이 달라지는 것을 막는 정합성 검사) (Keepsy #336) ② 방문 수정 · 삭제: 고객 → 방문, 삭제는 그 뒤 예약. 같은 재비교 (#337) ③ 완료 예약에 메모 추가: 고객을 잠그고 삭제 여부 확인 (F61) ④ 고객 삭제: 고객 → 그 고객의 예약 · 예측 · 발송 기록 · 방문 메모 정리 ⑤ 예약 생성: 스탭 `FOR UPDATE` → (고객이 있으면) 고객 `FOR SHARE` ⑥ 예약 수정: 스탭 `FOR UPDATE` → 예약 `FOR UPDATE` (고객은 바꾸지 않아 다시 읽지 않음) ⑦ 고객 연결: 예약 `FOR UPDATE` → 고객 `FOR SHARE` ⑧ 그 밖: 매장 행(로그인 · PIN · 설정 · 발송 한도, F14 · F7), 템플릿 행(F43), 스탭 비활성화(F34). ①②⑤⑥은 잠금을 트랜잭션의 첫 일반 조회보다 먼저 건다(REPEATABLE READ는 첫 일반 조회에서 스냅샷을 잡기 때문) | [제안] 구현: Keepsy #336 · #337 / [확정] F63 |
+| `customer.last_visit_date` | 컬럼은 있지만 갱신하지 않는다. 보관 기간(FR-CUS-12) 등 마지막 방문일은 방문 표에서 계산한다 (`RetentionExpiredQuery`). V2 컬럼 주석(「방문이 바뀔 때 갱신」)은 적용된 migration이라 고치지 않는다 | 구현: Keepsy main |
 
 ## 6. 인증·권한 구현 [제안]
 
@@ -273,7 +293,7 @@ erDiagram
 
 ### 방문 삭제 = 마감 되돌리기 [결정 F8]
 
-`DELETE /api/visits/{visitId}` 한 트랜잭션에서 방문 행 잠금(없으면 404) → 연결된 예약 모두 `CONFIRMED`·`visit_id` 비움 → 결제 취소 표시·`visit_id` 비움 → 시술·방문 메모·사진 행과 방문 삭제 → 예측 재계산. 사진 파일은 커밋 뒤 삭제. 고객 없는 방문은 `conflict`, CSV로 가져온 방문은 방문만 삭제. 결제가 있으면 `CUSTOMER_EDIT`과 `PAYMENT_EDIT`을 모두 검사한다.
+`DELETE /api/visits/{visitId}` 한 트랜잭션에서 고객 행 잠금(고객 있는 방문) → 방문 행 잠금(없으면 404) → 연결된 예약 모두 `CONFIRMED`·`visit_id` 비움 → 결제 취소 표시·`visit_id` 비움 → 시술·방문 메모·사진 행과 방문 삭제 → 예측 재계산(기준 방문일이 앞당겨지면 예측 스냅샷은 F62). 사진 파일은 커밋 뒤 삭제. 고객 없는 방문은 `conflict`, CSV로 가져온 방문은 방문만 삭제. 결제가 있으면 `CUSTOMER_EDIT`과 `PAYMENT_EDIT`을 모두 검사한다.
 
 ### 기록에 남는 사람
 
@@ -290,7 +310,7 @@ erDiagram
 | 메시지 발송 | 발송 처리 코드를 한곳에 모아, 실제 발송으로 바꿀 때 나머지 기능은 바꾸지 않는다 | [확정] FR-CMP-17 (전환 자체는 P3이지만 이 구조 조건은 명세서에 적혀 있음) |
 | | 발송은 컴포넌트 하나(예: `MessageSender`)를 거치고, MVP 구현은 가상 발송기다. 가상 발송기는 몇 초 뒤 결과를 바꾼다: 번호 형식 오류는 실패, 설정한 비율만큼 무작위 실패, 나머지는 성공 (FR-CMP-10). 실패 비율 기본값은 0% (F17). 무작위 판정은 주입한 난수 생성기로 해 테스트에서 고정한다 | [제안] |
 | 사진 저장소 | 저장·삭제·서명 URL 발급을 컴포넌트 하나에 모은다. 구현은 로컬 비공개 디렉터리(`APP_STORAGE_DIR`)와 HMAC-SHA256 서명(`APP_STORAGE_SIGNING_KEY`, 사진 ID·매장 ID·만료). 파일 이름은 서버가 무작위로 만들고 경로가 기준 디렉터리 밖이면 거부 | [확정] F16 |
-| 이메일 (비밀번호 재설정) | P2 (FR-ACC-06). 발송 수단 미정 | [검토 필요] |
+| 이메일 (비밀번호 재설정) | P2 (FR-ACC-06). 실제 발송 없이 서비스 내부 가상 메일함(`virtual_mail`, 화면 `/virtual-mailbox`, 비로그인)으로 처리 | [확정] F49 · F59 |
 
 ### 스케줄러 작업 [제안]
 
@@ -299,13 +319,14 @@ erDiagram
 | 예약 발송 실행 (30초마다). 발송 시점에 수신 동의·대상 제외·일 발송 한도를 다시 검사 | FR-CMP-09, F56 |
 | 가상 발송 결과 갱신 | FR-CMP-10 |
 | 야간에 접수된 수신 거부 처리 안내를 다음 08:00에 발송 | FR-CMP-07·11 |
+| 보관 기간(2년)이 지난 접근 기록 파기 (매일 03:30, Asia/Seoul) | NFR-06, D2 |
 
 ### 캠페인 발송 상태 전이 [결정 F7]
 
 | 전이 | 하는 곳 | 방법 |
 | --- | --- | --- |
 | `DRAFT`·`SCHEDULED` → `SCHEDULED` | 예약 발송 지정 · 다시 지정 (F56) | 조건부 UPDATE |
-| `DRAFT`·`SCHEDULED` → `SENDING` | 즉시 발송, 예약 시각이 된 스케줄러 | `UPDATE campaign SET status = 'SENDING' WHERE id = ? AND status IN ('DRAFT','SCHEDULED')`. 바뀐 행이 1이 아니면 `conflict`(409). 같은 트랜잭션에서 재검사(야간 · 한도 · 동의)와 고객별 `campaign_message`(`PENDING`, 대조군 행) 생성. 고객은 캠페인을 만들 때 저장한 `campaign_target`에서 읽는다 (F41) |
+| `DRAFT`·`SCHEDULED` → `SENDING` | 즉시 발송, 예약 시각이 된 스케줄러 | `UPDATE campaign SET status = 'SENDING' WHERE id = ? AND status IN ('DRAFT','SCHEDULED')`. 바뀐 행이 1이 아니면 `conflict`(409). 같은 트랜잭션에서 재검사(야간은 실제 처리 시각 기준(F67) · 한도 · 동의 · 광고 캠페인의 재발송 제한(F68), 세부는 CONTRACTS 6장 「CMP」)와 고객별 `campaign_message`(`PENDING`, 대조군 행) 생성. 고객은 캠페인을 만들 때 저장한 `campaign_target`에서 읽는다 (F41) |
 | `campaign_message` `PENDING` → `SENT`·`FAILED` | 가상 발송 결과 갱신 스케줄러 | 행마다 조건부 UPDATE (`status = 'PENDING'`일 때만) |
 | `SENDING` → `SENT` | 같은 스케줄러 | 남은 `PENDING`이 없을 때 조건부 UPDATE |
 | `DRAFT`·`SCHEDULED` → `CANCELED` | 사용자 취소 (`USER_CANCELED`) | 조건부 UPDATE |
@@ -325,6 +346,13 @@ erDiagram
 - 주요 조회 쿼리는 인덱스 사용 (`EXPLAIN`)
 - 목록 화면에 N+1 쿼리 없음
 - 캠페인 발송·CSV 일괄 등록·다운로드는 진행 상태 표시 (CSV는 처리 중 표시 + 완료 결과 요약, F4)
+
+점검 결과 (Keepsy #350 · #397, V12 파일 주석): perf 시드(고객 3,000 · 방문 19,061 · 예약 20,445), MySQL 8.4, `EXPLAIN ANALYZE` 5회에서 효과가 확인된 인덱스 2개만 V12로 더했다. 효과가 없거나 나빠진 후보는 넣지 않았다. 수치는 이 데이터 · 이 PC에서 잰 값이고 동시 사용자 부하 결과가 아니다.
+
+| 인덱스 | 쿼리 | 측정 |
+| --- | --- | --- |
+| `reservation (shop_id, status, start_at)` | 대시보드 「마감 안 된 예약」 | 15.5ms → 0.02ms. 마감 안 된 예약이 0건인 데이터에서 잰 값이라 일반적인 개선 폭으로 쓰지 않는다 |
+| `visit (shop_id, customer_id, visit_date)` | 매장 요약 신규 고객 수 | 18.6ms → 5.6ms (대표값) |
 
 ## 9. 남은 결정
 
@@ -354,3 +382,17 @@ erDiagram
 | 스탭 정기 휴무 요일을 바꿀 때 밀리는 예약 목록 (FR-SET-07은 요구, CONTRACTS는 `PATCH /api/staff/{staffId}`에 없음) | FR-SET-07 | #21 | 정함 F12 |
 | CONTRACTS 4장에 없는 API: 취향 태그 목록, CSV 일괄 등록 진행 상태 | FR-CUS-04·13, NFR-01 | #42, #52 | 정함 F3 · F4 |
 | 캘린더 기간 조회에 페이징(CONTRACTS 1장)을 적용할지 | FR-RSV-02 | #58 | 정함 F13 |
+
+### 알려진 한계와 미구현 (2026-11-26 최종 점검)
+
+Keepsy main `e9c3823` 기준. 「수용한 한계」는 팀이 알고 받아들인 것이고, 「미충족」은 확정 요구사항을 아직 채우지 못한 것이다(요구사항은 줄이지 않는다). 개선 여부는 팀이 정한다.
+
+| 항목 | 근거 | 분류 | 바꾸는 조건 · 검토 사항 |
+| --- | --- | --- | --- |
+| `useLoad` 다시 불러오기의 `loading` 상태 경쟁: 먼저 끝난 요청이 아직 진행 중인 최신 요청의 `loading`을 내릴 수 있다 | `frontend/src/hooks/useLoad.ts` | 수용한 한계 | 지금 쓰는 화면이 이 상태를 읽지 않아 확인된 사용자 영향은 없다. 이 상태를 읽는 화면이 생기면 요청 세대를 비교해 고친다 |
+| 예측 스냅샷: 오래된 방문을 먼저 지우고 최신 방문을 지우거나, 최신이 아닌 방문을 지우면 평가 전으로 남는 스냅샷이 생길 수 있다 | F62, Keepsy #381 「못 고친 것」 | 수용한 한계 | 예측 정확도(FR-ANL-07) · 주기 내 재방문율(F58) 분모가 과다 집계될 수 있다. 해결안(F62 보완, 스냅샷에 기준 방문일 저장 같은 스키마 변경)은 검토 사항 |
+| 메뉴 · 카테고리 주기 변경의 일괄 재계산과 같은 고객의 시술 마감 · 방문 수정이 겹칠 때 | `PredictionAppService.recalculateForMenu` · `recalculateForCategoryDefault` | 수용한 한계 | REPEATABLE READ 스냅샷 때문에 생길 수 있는 잠재적 정합성 문제(예측 갱신 유실, 평가 전 스냅샷 중복). 동시성 재현 테스트는 하지 않았다. 메뉴를 먼저 읽어 스냅샷이 잡히므로 고객 잠금만 더해서는 해결되지 않는다 |
+| 완료 예약의 추가 결제 · 방문 메모에 서버 멱등성 없음 | F69 | 수용한 한계 | 프론트 연속 제출 가드의 범위와 바꾸는 조건은 F69 |
+| 상단 통합 검색: 키워드 · 동의어 부분 일치는 일부(FR-SCH-02), 기간 인식(FR-SCH-03) · 고객 통합 검색(FR-SCH-04) · 검색 결과의 PIN 자물쇠 표시(FR-SCH-05) 없음 | `frontend/src/components/layout/Topbar.tsx`, `src/lib/featureSearch.ts` | 미충족 (P1) | 백엔드 `GET /api/search/customers`는 있으나 화면이 부르지 않는다. 검색 흐름에 PIN 단계가 없을 뿐, 각 API의 서버 권한 검사(`@RequireFeature`)는 그대로다 |
+| 미매칭 검색어 로그(FR-SCH-06) 화면 미연동, 초성 검색(FR-SCH-07) 없음 | 같은 파일, 백엔드 `POST /api/search/misses` | 미충족 (P2) | — |
+| 데모 데이터의 예측 정확도: 적중 1,235/4,878, 평균 오차 70.6일 | perf 시드(`seed.random=20261211`, `seed.until=2026-12-11`) 조회 결과 (2026-11-26) | 모의 측정값 | 시드의 방문 간격 특성(스탭별 하루 예약 칸 고정과 대기열 때문에 실제 간격이 기본 주기보다 길고 고르지 않음)이 결과에 영향을 주었다. 알고리즘이 맞다는 증명도, 실제 매장 성능도 아니다 (기획서 4장, E9) |
