@@ -164,11 +164,14 @@
 | `MYSQL_ROOT_PASSWORD` | 로컬 MySQL | 백엔드는 쓰지 않음 |
 | `MYSQL_HOST` · `MYSQL_PORT` | 백엔드 DB 접속 | 선택. 없으면 `localhost` · `3306` |
 | `APP_STORAGE_DIR` · `APP_STORAGE_SIGNING_KEY` | 사진 저장소 | 비공개 디렉터리 경로와 서명 URL용 HMAC 비밀키 (결정체크리스트 F16, `docs/ARCHITECTURE.md` 「7」). 디렉터리는 저장소에 커밋하지 않는다 |
-| `SPRING_MAIL_*` | 비밀번호 재설정 메일 | P2 (FR-ACC-06). 그때 추가 |
+| `MYSQL_TEST_HOST` · `_PORT` · `_DATABASE` · `_USER` · `_PASSWORD` | 백엔드 테스트(`./gradlew test` · `build`) | 선택. 기본 `127.0.0.1` · `3307` · `keepsy_test` · `keepsy_test` · `keepsy-test`(compose `mysql-test`용 임시 값). DB 이름이 `_test`로 끝나지 않거나 접속할 수 없으면 테스트가 바로 실패한다. 테스트는 사진 경로 · 서명 키를 테스트 값으로 고정한다 (`TestDatabaseGuard`). CI는 이 이름으로 서비스 컨테이너를 가리킨다 |
+| `MYSQL_DEMO_HOST` · `_PORT` · `_DATABASE` · `_USER` · `_PASSWORD` | 시드 적재(`./gradlew seedDemo`) | 선택. 기본 `127.0.0.1` · `3308` · `keepsy_demo` · `keepsy_demo` · `keepsy-demo`(compose `mysql-demo`용 임시 값). DB 이름은 `_demo`로 끝나야 한다 |
+| `MYSQL_TEST_PORT` · `MYSQL_DEMO_PORT` | `compose.yaml`의 테스트 · 데모 DB 포트 | 선택. 기본 `3307` · `3308` |
+| `SPRING_MAIL_*` | 비밀번호 재설정 메일 | 쓰지 않음. 실제 메일 없이 가상 메일함으로 처리 (F59) |
 
 세션 쿠키 Secure는 Spring 기본값(`false`)을 그대로 쓴다. 로컬은 http이고, HTTPS로 운영하게 되면 그때 켠다 (NFR-02·05).
 
-이름은 `[제안]`이다. 골격을 만들 때 `.env.example`에 이 표대로 적고, 바뀌면 이 표를 함께 고친다.
+이름은 `[제안]`이다. `.env.example`과 이 표가 같은 이름을 쓰고, 바뀌면 함께 고친다.
 
 ## 6. 골격 만들기와 실행 명령
 
@@ -182,31 +185,53 @@ IntelliJ에서 새 프로젝트를 Spring Boot(Spring Initializr)로 만든다. 
 | JDK · Java | 21 |
 | Packaging | Jar |
 | Group · Artifact | `com.tuktaklab` · `keepsy` (기본 패키지 `com.tuktaklab.keepsy`, 개발 저장소 골격에서 정함) |
-| Spring Boot | Initializr가 보여주는 안정판 (SNAPSHOT·M·RC 제외) |
+| Spring Boot | 4.2.0 (`docs/ARCHITECTURE.md` 「2」) |
 | Dependencies | Spring Web, Spring Security, Spring Data JPA, Validation, MySQL Driver, Flyway Migration, Lombok |
-| 나중에 추가 | Java Mail Sender (P2 비밀번호 재설정), 사진 저장소 SDK (제공사가 정해지면) |
 
-설정 파일(`application.yaml`, `compose.yaml`, `.env.example`)과 의존성 추가는 IntelliJ에서 직접 만든다. 만드는 순서와 내용은 그 단계에서 따로 안내한다.
+골격은 만들어졌다(Keepsy 저장소 `backend/`). 실제 버전과 의존성은 `backend/build.gradle`이 기준이다. 메일(F59 가상 메일함)과 사진 저장소 SDK(F16 로컬 디렉터리)는 쓰지 않는다.
 
 ### 프론트 골격 [제안]
 
-`frontend/`에 Next.js 프로젝트를 만든다. TypeScript · ESLint · App Router · `src/` 디렉터리를 켜고, Tailwind는 끈다(4절). 만든 뒤 `next.config`에 정적 빌드(`output: 'export'`), 이미지 최적화 끄기(`images.unoptimized`), 개발 모드에서만 `/api/**`를 8080으로 넘기는 설정을 넣는다 (`docs/ARCHITECTURE.md` 「3」).
+만들어졌다(Keepsy 저장소 `frontend/`, 버전은 `docs/ARCHITECTURE.md` 「2」와 `frontend/package.json`). TypeScript · ESLint · App Router · `src/` 디렉터리를 켜고, Tailwind는 끈다(4절). `next.config`에 정적 빌드(`output: 'export'`), 이미지 최적화 끄기(`images.unoptimized`), 개발 모드에서만 `/api/**`를 8080으로 넘기는 설정을 넣는다 (`docs/ARCHITECTURE.md` 「3」).
 
 ### 실행 명령
 
-골격을 만든 뒤 실제로 돌려 보고 확인된 명령만 "확인됨"으로 적는다. "확인 전"은 이 도구들의 표준 명령이다.
+실제로 돌려 보고 확인된 명령만 "확인됨"으로 적고, 확인한 날짜와 근거(직접 실행 또는 Keepsy PR 보고)를 함께 적는다. "확인 전"은 아직 돌려 보지 않은 명령이다.
 
 | 할 일 | 명령 | 상태 |
 | --- | --- | --- |
-| 로컬 MySQL 띄우기 | `docker compose up -d` (저장소 루트에서, `.env` 필요) | 확인됨 (2026-11-23, MySQL 8.4) |
-| 백엔드 실행 | `./gradlew bootRun` (`backend/`에서) | 확인됨 (2026-11-23, Git Bash. 8080에서 Spring Security 기본 로그인 화면) |
-| 백엔드 테스트 · 빌드 | `./gradlew test` · `./gradlew build` (`backend/`에서, 로컬 MySQL이 떠 있어야 함) | 확인됨 (2026-11-23, Git Bash. `./gradlew build`는 CI `backend` job(GitHub Actions ubuntu, MySQL 8.4 서비스 컨테이너)에서도 통과, Keepsy #110) |
+| 개발 DB 띄우기 (3306) | `docker compose up -d` (저장소 루트에서, `.env` 필요) | 확인됨 (2026-11-23, MySQL 8.4) |
+| 테스트 DB 띄우기 (3307, 데이터는 메모리) | `docker compose --profile test up -d --wait mysql-test` (저장소 루트에서) | 확인됨 (2026-11-25, Keepsy #355) |
+| 데모 DB 띄우기 (3308) | `docker compose --profile demo up -d --wait mysql-demo` (저장소 루트에서) | 확인됨 (2026-11-25, Keepsy #380) |
+| 백엔드 실행 | `./gradlew bootRun` (`backend/`에서, `127.0.0.1:8080`) | 확인됨 (2026-11-23, Git Bash. 127.0.0.1 바인딩은 Keepsy #355) |
+| 백엔드를 데모 DB로 실행 | `MYSQL_PORT=3308 MYSQL_DATABASE=keepsy_demo MYSQL_USER=keepsy_demo MYSQL_PASSWORD=keepsy-demo ./gradlew bootRun` (`backend/`에서, 로컬 시연 컨테이너용 임시 값) | 확인됨 (2026-11-25 Keepsy #380, 2026-11-26 최종 점검에서 다시 실행) |
+| 백엔드 테스트 · 빌드 | `./gradlew test` · `./gradlew build` (`backend/`에서). 테스트 DB(3307)가 떠 있어야 하고 개발 DB는 쓰지 않는다. `seed` 태그 테스트는 빠진다 | 확인됨 (2026-11-26 최종 점검에서 `./gradlew clean build`, 테스트 660개 통과. CI `backend` job에서도 통과) |
 | 백엔드 포매팅 | `./gradlew spotlessApply` (`backend/`에서, 커밋 전). 검사(`spotlessCheck`)는 `./gradlew build`에 포함 | 확인됨 (2026-11-23, Git Bash, Keepsy #150) |
-| 프론트 개발 서버 · 빌드 | `npm run dev` · `npm run build` (`frontend/`에서, Node 24) | 확인됨 (2026-11-24, Git Bash · Node 24.20.0, Keepsy #119. `dev`는 3000에서 열리고 `/api/**`를 8080으로 넘김, `build`는 `out/`에 정적 파일을 만듦) |
-| 프론트 린트 | `npm run lint` (`frontend/`에서) | 실행은 됨, 통과 안 함 (2026-11-24. 데모에서 가져온 코드의 기존 오류 16개(`no-explicit-any` 14, `no-unescaped-entities` 2)가 남아 있음. #119 머지 뒤 수정 PR로 고침) |
-| 시드 데이터 적재 | [검토 필요] (C17 구성) | — |
+| 프론트 개발 서버 · 빌드 | `npm run dev` · `npm run build` (`frontend/`에서, Node 24) | 확인됨 (2026-11-24, Keepsy #119. `dev`는 `127.0.0.1:3000`에서 열리고 `/api/**`를 8080으로 넘김, `build`는 `out/`에 정적 파일을 만듦. 2026-11-26 깨끗한 checkout에서 `build` 다시 통과) |
+| 프론트 린트 | `npm run lint` (`frontend/`에서) | 통과 (2026-11-26, 깨끗한 checkout에서 오류 0, 경고만) |
+| 프론트 단위 테스트 | `npm test` (`frontend/`에서, `node --test`로 `src/**/*.test.ts`) | 확인됨 (2026-11-26, 143개 통과) |
+| 프론트 타입 검사 | `npm run typecheck` (`frontend/`에서). `build` 또는 `dev`를 한 번 돌린 뒤에 실행한다 | 확인됨 (2026-11-26, `build` 뒤 통과. 새로 받은 checkout에서 먼저 돌리면 생성 파일 `next-env.d.ts`가 없어 이미지 모듈 오류로 실패) |
+| 시드 데이터 적재 (C17) | 데모 DB를 띄운 뒤 `backend/`에서 `./gradlew seedDemo -Pseed.scale=perf -Pseed.until=<시연일>`. 규모 `small` · `demo` · `perf`, 고정 난수 `-Pseed.random=…`(기본 20261211), 다시 만들기 `-Pseed.recreate=true`(데모 매장 행만 지움). DB 이름이 `_demo`로 끝나지 않으면 거부 | 확인됨 (2026-11-25, Keepsy #380. perf 규모 약 12분 25초) |
+| 리허설용 DB에 시드 적재 | 아래 「리허설용 DB」 | 확인 전 |
 
-로컬에서 여는 순서: ① MySQL 띄우기 → ② 백엔드 실행(8080) → ③ 프론트 개발 서버 실행(3000) → 브라우저에서 `http://localhost:3000`.
+로컬에서 여는 순서: ① 개발 DB 띄우기 → ② 백엔드 실행(8080) → ③ 프론트 개발 서버 실행(3000) → 브라우저에서 `http://127.0.0.1:3000`. 시연은 ①을 데모 DB로, ②를 「백엔드를 데모 DB로 실행」으로 바꾼다.
+
+**리허설용 DB (확인 전)**: 발표용 데모 DB(`keepsy_demo`, perf · `seed.random=20261211` · `seed.until=2026-12-11`)는 그대로 두고, 리허설 날짜에 맞춘 시드는 같은 컨테이너의 다른 DB에 넣는다. `seedDemo`는 `MYSQL_DEMO_DATABASE`로 DB를 바꿀 수 있다(5장). 데모 컨테이너는 이름이 고정이라 하나 더 띄울 수 없다.
+
+```bash
+# 한 번만: 리허설 DB 만들기 (root 값은 compose.yaml에 적힌 로컬 임시 값)
+docker exec keepsy-mysql-demo mysql -uroot -pkeepsy-demo-root -e "CREATE DATABASE keepsy_rehearsal_demo; GRANT ALL ON keepsy_rehearsal_demo.* TO 'keepsy_demo'@'%';"
+# backend/에서: 리허설 날짜로 시드 (날짜를 바꿔 다시 만들 때는 -Pseed.recreate=true)
+MYSQL_DEMO_DATABASE=keepsy_rehearsal_demo ./gradlew seedDemo -Pseed.scale=perf -Pseed.until=<리허설일>
+# 리허설용으로 실행
+MYSQL_PORT=3308 MYSQL_DATABASE=keepsy_rehearsal_demo MYSQL_USER=keepsy_demo MYSQL_PASSWORD=keepsy-demo ./gradlew bootRun
+```
+
+**로컬 산출물 문제**: CI는 매번 새로 받아 돌리므로 아래는 로컬에서만 생긴다.
+
+- Keepsy #393(화면을 `(shop)` 그룹으로 옮김) 전에 `npm run dev`를 돌린 적이 있으면, 남은 `frontend/.next/` 타입 파일 때문에 `npm run build` · `typecheck`가 옛 경로를 찾다 실패한다. `frontend/.next/`를 지운다(다시 생성되는 캐시).
+- 데모 시절 Vite 빌드 결과 `frontend/dist/`가 남아 있으면 `npm run lint`가 그 파일까지 읽어 경고가 수백 개 나온다. gitignore 대상이라 지워도 된다.
+- `npm run typecheck`는 `build` 또는 `dev` 뒤에 돌린다(위 표).
 
 이 저장소의 문서 검사는 지금 쓸 수 있다.
 
@@ -222,12 +247,12 @@ YAML 형식까지 보려면 `yaml` 패키지가 필요하다. CI(`.github/workfl
 | --- | --- | --- |
 | MVP 수용 테스트 | 기획서 7장 시나리오 여섯 개를 그대로 수용 테스트 기준으로 쓴다 | [확정] 기획서 7장 |
 | 요구사항별 완료 | 명세서 「상세 / 수용 기준」 열의 조건마다 성공·실패 경로 확인 | [제안] |
-| 지표 계산 검증 | 답을 미리 아는 시드 데이터로 측정 지표(예측 정확도, 주기 내 재방문율, 재예약 전환율, 대조군 비교)가 정확히 계산되는지 확인. 결과는 "모의 데이터로 생성한 결과값"으로 밝힌다 | [확정] 기획서 4·12장, E9 |
+| 지표 계산 검증 | 답을 미리 아는 시드 데이터로 측정 지표(예측 정확도, 주기 내 재방문율, 재예약 전환율, 대조군 비교)가 정확히 계산되는지 확인. 결과는 "모의 데이터로 생성한 결과값"으로 밝힌다. 데모 시드에서 잰 예측 정확도와 그 해석은 `docs/ARCHITECTURE.md` 「9」 「알려진 한계와 미구현」 | [확정] 기획서 4·12장, E9 |
 | 성능 구조 점검 | 페이징, `EXPLAIN` 인덱스 사용, N+1 없음, 진행 상태 표시 | [확정] NFR-01, C17 |
 | 시드 데이터 | 매장 1곳·스탭 5명(네일 2·속눈썹 1·왁싱 1·반영구 1)·고객 3천 명·3년 치 방문 약 1.9만 건. 구성은 C17 표가 기준. 예약 경로 분포, 고객 없는 방문, 대조군 캠페인을 포함 | [확정] C17, 기획서 12장 |
 | 단위 테스트 우선 대상 | 예측 계산(FR-PRD-01, 방문 1·2·3회 이상, 주기 계산 제외, 종료 신호), 상태 분류(FR-PRD-04), 우선순위(FR-PRD-09), 귀속과 승계(FR-ANL-03, FR-VIS-04), 예약 가능 시간(FR-RSV-04), 광고 문구·바이트 계산(FR-CMP-04·05), 야간 제한(FR-CMP-07), 기능별 공용/PIN 검사(명세서 2장) | [제안] |
-| 백엔드 테스트 도구 | JUnit 5 + Spring Boot Test. DB가 필요한 테스트는 실제 MySQL 8(로컬 `compose.yaml`, CI 서비스 컨테이너)로 돌린다. 내장 DB는 쓰지 않는다 (그래빗과 같음) | [제안] |
-| 프론트 검증 | `npm run lint` · `npm run build`(타입 검사·정적 빌드 포함). 바이트 계산처럼 화면에서도 계산하는 규칙은 필요해지면 단위 테스트 도구를 추가 | [제안] |
-| CI (개발 저장소) | PR마다 백엔드 `test`·`build`, 프론트 `lint`·`build`. 실제 명령이 확인된 뒤 워크플로를 만든다 | [제안] |
+| 백엔드 테스트 도구 | JUnit 5 + Spring Boot Test. DB가 필요한 테스트는 실제 MySQL 8로 돌린다. 내장 DB는 쓰지 않는다 (그래빗과 같음). 로컬은 개발 DB와 나눈 테스트 전용 DB(compose `mysql-test`, 3307)를 쓰고, `TestDatabaseGuard`가 DB 이름(`_test`)과 접속을 먼저 확인하며 사진 경로를 테스트 값으로 고정한다. 시드 생성(`seed` 태그)은 기본 `test`에서 빠진다 (Keepsy #355 · #380) | [제안] |
+| 프론트 검증 | `npm run lint` · `npm test`(화면 계산 규칙 단위 테스트, `node --test`) · `npm run build`(타입 검사·정적 빌드 포함). `npm run typecheck`는 따로 돌릴 수 있다(6장 순서 주의) | [제안] |
+| CI (개발 저장소) | `.github/workflows/ci.yml`: PR과 `main` push마다 `backend` job은 MySQL 8.4 서비스 컨테이너로 `./gradlew build`(테스트 · Spotless 포함), `frontend` job은 `npm ci` · `npm run lint` · `npm test` · `npm run build` | [제안] |
 
 법 관련 기능(동의, 광고 표기, 재확인, 파기, 접근 기록)의 테스트는 팀이 정한 규칙(D 묶음)대로 동작하는지 확인하는 것이다. 상업 운영이 아니라 법 조문 원문 대조는 하지 않는다 (결정체크리스트 「법 조문 확인 범위」).
