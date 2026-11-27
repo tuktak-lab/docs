@@ -132,6 +132,9 @@ frontend/
   src/hooks/useLoad.ts     「처음 불러오기 + 다시 불러오기」, 마지막 요청의 응답만 반영 (src/lib/latest.ts, Keepsy #344)
   src/lib/api.ts           fetch 래퍼: CSRF 헤더, 오류 code 처리
   src/lib/*.ts             화면 계산 규칙. 옆의 *.test.ts를 `npm test`(node --test)로 검사
+  src/lib/i18n.ts          화면 언어: t() · 언어 저장 · 오류 code 번역 (F74, Keepsy #451)
+  src/lib/messages/<언어>.ts  화면 문구 사전. ko.ts가 원본(키 타입), en.ts는 키를 모두 채워야 typecheck 통과
+  src/components/common/LocaleRoot.tsx  저장된 언어 적용(hydration 뒤 한 번 다시 마운트) · <html lang>
   public/search-keywords.json   기능 검색 키워드·동의어 사전 (FR-SCH-02 "정적 파일")
 ```
 
@@ -146,10 +149,19 @@ frontend/
 | `pin_required` | PIN 입력 창 → 인증되면 같은 요청을 다시 보냄 |
 | `owner_pin_required` | 원장 PIN 입력 창 (`message`를 함께 표시, 예: 예약 제한 사유) |
 | `csrf_invalid` | 토큰 쿠키를 다시 읽어 한 번만 다시 보냄 |
-| 그 밖의 code · 네트워크 실패(`network_error`) · 읽을 수 없는 응답(`invalid_response`) | `message`를 그대로 보여 줌. 화면이 오류를 직접 보여 줄 때는 `silent` 옵션으로 끔 |
+| 그 밖의 code · 네트워크 실패(`network_error`) · 읽을 수 없는 응답(`invalid_response`) | `message`를 그대로 보여 줌. 화면이 오류를 직접 보여 줄 때는 `silent` 옵션으로 끔. 한국어가 아닌 화면에서는 `ApiError`가 만들어질 때 `message`가 code별 안내로 바뀐다(아래 「화면 문구 · 언어」) |
 
 - 연락처 마스킹은 서버가 한다 (NFR-04). 화면에서 다시 가리거나 풀지 않는다.
 - 날짜·시각은 Asia/Seoul로 표시한다 (NFR-12).
+
+**화면 문구 · 언어** (FR-I18N-02, 결정 F74):
+
+- 화면 문구는 코드에 한글로 직접 쓰지 않고 `t('영역.이름', { 변수 })`로 쓴다. 키는 `src/lib/messages/ko.ts`에 먼저 넣고 같은 PR에서 `en.ts`도 채운다(빠지면 typecheck 실패). `t()`는 훅이 아닌 일반 함수라 `src/lib/*.ts`의 순수 함수에서도 쓴다.
+- 기존 화면의 한글 문구는 기능 폴더(`src/features/<영역>/` + 그 영역의 `src/lib/*.ts`) 단위 PR로 옮긴다. 시점은 프론트 담당과 맞춘다 (F74 ④). 새로 쓰는 화면은 처음부터 `t()`를 쓴다.
+- 언어는 브라우저별 `localStorage`(`keepsy.locale`)에 저장하고 기본은 한국어다. 정적 빌드의 HTML은 한국어이므로 `LocaleRoot`가 hydration 뒤 저장된 언어를 적용하고 앱을 한 번 다시 마운트한다. 언어를 바꾸면 새로고침한다.
+- 날짜 · 숫자 서식은 `'ko-KR'`을 직접 쓰지 않고 `intlLocale()`을 쓴다. 금액은 `formatWon`.
+- 서버 오류 문구는 화면이 오류 `code`로 번역한다(`messages/en.ts`의 오류 안내). 서버 `message` · 칸별 사유(`details`)는 한국어 그대로다 (F74 ③).
+- 매장이 입력한 값(시술 메뉴명 · 고객명 등)과 캠페인 · 자동 안내 문자는 번역하지 않는다. 기능 검색 키워드 사전(`public/search-keywords.json`)의 영어 버전은 기능 검색(SCH) 문구를 옮길 때 정한다.
 
 ### 화면 경로
 
