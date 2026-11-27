@@ -24,7 +24,7 @@
 | 예약 발송은 발송 시점에 수신 동의·대상 제외 조건·일 발송 한도를 다시 검사한다 | FR-CMP-09 |
 | 광고 표기는 서버가 붙이고, 사용자가 지우거나 바꿀 수 없다 | FR-CMP-04, D5 |
 | 사진은 인증된 사용자에게 짧은 만료의 서명 URL로만 준다 | NFR-07 |
-| 개인정보 조회·수정·삭제·다운로드는 접근 로그에 남긴다 | NFR-06, D2 |
+| 개인정보 조회·수정·삭제·다운로드는 접근 로그에 남긴다. 고객 목록 · 검색(`GET /api/customers` · `GET /api/search/customers`)은 **실제로 돌려준 페이지의 고객**마다 조회 한 줄씩 남긴다(조건에 맞는 전체가 아님, 결과가 없으면 남기지 않음). 대상은 유형과 ID만 남기고 이름 · 번호 · 검색어는 남기지 않는다 | NFR-06, D2 |
 | 세션 쿠키는 HttpOnly·Secure·SameSite, CSRF 보호 | NFR-02 |
 | 날짜 계산·야간 제한은 Asia/Seoul 기준 | NFR-12 |
 
@@ -96,7 +96,7 @@
 | 예약 경로 | `NAVER` `KAKAO` `PHONE` `STORE` `ETC` | 제안 (E3) |
 | 유입 경로 | `INSTAGRAM` `NAVER_SEARCH` `REFERRAL` `PASSING_BY` `ETC` | 제안 (FR-CUS-01) |
 | 성별 | `FEMALE` `MALE` `OTHER` | 제안 (FR-CUS-01) |
-| 선호 언어 | `KO` `EN` `ZH` `JA` `ETC` | 제안 (FR-I18N-01) |
+| 선호 언어 | `KO` `EN` `ZH` `JA` `ETC` | 제안 (FR-I18N-01, F76로 범위 제외. API는 계속 받고 돌려준다) |
 | 결제 수단 | `CARD` `CASH` `TRANSFER` `ETC` | 제안 (C9) |
 | 방문 출처 | `NORMAL` `IMPORT` | 제안 |
 | 고객 상태 | `ACTIVE` `DELETED` | 제안 (C12) |
@@ -253,8 +253,8 @@
 | `GET /api/dashboard/care-targets` | 오늘 관리할 고객 상위 10행 (관리 종료 `CLOSED` 행은 빼고 고름, F55) | `INSIGHT` | FR-DSH-02 |
 | `GET /api/dashboard/recent-campaigns` | 최근 3개 캠페인 재예약 전환율 (P2) | `CAMPAIGN_VIEW` | FR-DSH-04 |
 | `GET /api/dashboard/booking-channels?period=` | 예약 경로 비율 (P2) | `DASHBOARD_SEARCH` | FR-DSH-06 |
-| `GET /api/search/customers?q=` | 상단 검색창의 고객 결과 | `CUSTOMER_VIEW` | FR-SCH-04 |
-| `POST /api/search/misses` | 결과 없는 검색어 저장 (P2) | `DASHBOARD_SEARCH` | FR-SCH-06 |
+| `GET /api/search/customers?q=` | 상단 검색창의 고객 결과. 구현돼 있으나 화면은 부르지 않음 (범위 제외, F75) | `CUSTOMER_VIEW` | FR-SCH-04 |
+| `POST /api/search/misses` | 결과 없는 검색어 저장 (P2). 구현돼 있으나 화면은 부르지 않음 (범위 제외, F75) | `DASHBOARD_SEARCH` | FR-SCH-06 |
 
 기능 키워드 사전은 정적 파일이라 API가 없다 (FR-SCH-02, `docs/ARCHITECTURE.md` 「4」).
 
@@ -496,7 +496,7 @@
 | `consentMethod` | string | 예 | `TABLET` · `PAPER` · `VERBAL`. 등록 때 받은 동의 모두에 쓴다 (`IMPORT`는 CSV 전용) |
 | `gender` | string | 아니오 | 3절 「성별」 |
 | `birthYear` | number | 아니오 | 1900 ~ 올해 |
-| `preferredLanguage` | string | 아니오 | 3절 「선호 언어」 |
+| `preferredLanguage` | string | 아니오 | 3절 「선호 언어」. 화면은 보내지 않는다 (FR-I18N-01 범위 제외, F76). 보내면 지금처럼 저장한다 |
 | `acquisitionChannel` | string | 아니오 | 3절 「유입 경로」 |
 
 | 응답 필드 | 타입 | 설명 |
@@ -528,6 +528,7 @@
 | `marketingConsent` | boolean | 마케팅 동의 현재 상태 |
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
+- 돌려준 페이지의 고객마다 조회로 접근 로그에 남긴다. 검색어는 남기지 않는다 (NFR-06, 1장)
 
 **`GET /api/customers/{customerId}`** 고객 상세 (FR-CUS-03 · 04 · 05 · 11). `CUSTOMER_VIEW`. 다른 매장 · 삭제된 고객이면 `not_found` 404. 예약 · 예측 · 히스토리 · 상담 메모 · 동의 · 수신 이력 · 결제 · 연락처 전체는 기능 키가 달라 4절의 각 API로 따로 읽는다 (명세서 2장).
 
@@ -660,12 +661,17 @@
 | `services` | object[] | 실제 시술(visit_service, A13), 저장한 순서 |
 | `photos` | object[] | 사진, 올린 순서. 사진 동의(`PHOTO`) 최신 행이 동의가 아니면 빈 배열 |
 | `notes` | object[] | 방문 메모(visit_note, F1), 작성한 순서 |
+| `imported` | boolean | CSV로 가져온 방문이면 true. 방문 수정(`PATCH /api/visits/{visitId}`)은 `conflict` 409라 화면이 수정 버튼을 두지 않는다(F25). 삭제는 되돌릴 예약이 없어 방문만 지운다(F8) (F77) |
 
 | `services` 항목 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `category` | string | 3절 「시술 카테고리」 |
 | `menuName` | string \| null | 시술 메뉴 이름. 가져온 방문은 null이고 화면은 "메뉴 미상"으로 보인다 (A13) |
 | `staff` | object \| null | 담당 스탭 `{ "id", "name" }`. 가져온 방문이면 null |
+| `serviceMenuId` | number \| null | 시술 메뉴 ID. 가져온 방문이면 null. 방문 수정(`PATCH /api/visits/{visitId}`)의 `services`를 채우는 값이다 (F77) |
+| `cycleExcluded` | boolean | 이번 시술 주기 계산 제외 (FR-VIS-05). 방문 수정 화면이 지금 값을 보여 주는 데 쓴다 (F77) |
+
+- `services`는 **방문 전체**의 실제 시술이다(같은 날 여러 예약을 마감해 한 방문이 된 경우 그 예약들의 시술 모두, C6). 방문 수정은 이 목록 전체를 보내야 다른 예약의 시술이 지워지지 않는다 (F77)
 
 | `photos` 항목 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -1073,7 +1079,9 @@
 | `services` | object[] | 실제 시술 `{ "serviceMenuId": number, "name": string, "category": string, "price": number, "predictionAttribute": string, "staff": { "id": number, "name": string }, "cycleExcluded": boolean }`. 확정 예약이면 예정 시술을 예약 담당 스탭 · `cycleExcluded: false`로 채우고, 완료 예약이면 이 예약으로 기록된 방문의 실제 시술이다 (A13). `price`는 지금 메뉴 가격(원), `predictionAttribute`는 3절 「메뉴 예측 속성」(`NORMAL` 메뉴에 주기 계산 제외를 체크하면 FR-VIS-05 안내를 띄운다) |
 | `photoAllowed` | boolean | 사진 동의 현재 상태(최신 행). 고객이 없으면 false (FR-CUS-08) |
 | `consentsToRequest` | string[] | 동의 받기 대상. `PHOTO` `MARKETING` `NIGHT_AD` `HEALTH` 중 현재 동의 상태가 아닌 항목(3절 순서). 고객이 없으면 빈 배열 (E3) |
+| `payments` | object[] | **이 예약으로 등록한** 결제 `{ "paymentId": number, "paidAt": string, "amount": number, "method": string, "canceled": boolean }`, 결제 시각순. 확정 예약이면 빈 배열. 같은 방문에 묶인 다른 예약의 결제는 넣지 않는다. 취소된 결제도 `canceled: true`로 남긴다. 고객이 있든 없든 같다. 결제 수정 · 취소(`PATCH /api/payments/{paymentId}` · `POST …/cancel`, `PAYMENT_EDIT`)의 대상이다 (FR-PAY-02 · 04, F77) |
 
+- `payments`는 시술 마감 업무에 필요한 이 예약의 결제만이라 `RESERVATION`으로 준다. 고객 전체 결제 이력(`GET /api/customers/{customerId}/payments`)과 매출 조회는 그대로 `SALES_ANALYTICS`다 (F77, 명세서 2장)
 - 결제 수단은 3절 「결제 수단」 값을 그대로 쓴다 (응답에 넣지 않는다)
 - 취소 · 노쇼 예약이면 `conflict` 409, 다른 매장 · 없는 예약이면 `not_found` 404
 
@@ -1274,6 +1282,12 @@
 | `sendStatus` | string \| null | 3절 「발송 상태」. 대조군 행이면 null |
 | `failureReason` | string \| null | 실패 사유 (FR-CMP-10) |
 | `resultAt` | string \| null | 발송 결과 시각 |
+| `messageId` | number \| null | 발송 기록 ID (귀속 발송 ID, F15). 대조군 행이면 null |
+| `reservations` | object[] | 이 발송이 귀속된 예약 `{ "id": number, "startAt": string, "status": string }`, 시작 시각 순 (FR-ANL-04). 규칙은 `GET /api/customers/{customerId}/messages`의 `reservations`와 같다. 발송 성공한 광고 메시지가 아니면(대조군 · 실패 · 대기) 빈 배열 |
+| `visits` | object[] | 이 발송이 귀속된 방문 `{ "id": number, "visitDate": string }`, 방문일 순 (FR-ANL-04). 규칙은 위와 같다 |
+
+- 고객별 연결 기록(`reservations` · `visits`)은 고객 상세 수신 이력과 같은 귀속 판정이고 재예약 여부로 좁히지 않는다. 그래서 행을 세어도 퍼널의 `revisitedCount`(재예약 ∩ 귀속 방문, F35)와 다를 수 있다. 페이지의 발송 ID로 한 번에 읽는다 (NFR-01)
+- 결제 금액은 넣지 않는다. 고객별 연결 매출은 `GET /api/campaigns/{campaignId}/revenue?customerIds=`(`SALES_ANALYTICS`)로 따로 받는다 (명세서 2장)
 
 **`GET /api/campaigns/{campaignId}/preview`** 캠페인 미리보기 (FR-CMP-05 · 18, B3, 결정 F46 · F47). `CAMPAIGN_SEND`. 다른 매장 · 없는 캠페인이면 `not_found` 404. 광고 캠페인인데 매장 정보의 전화번호(`phone`) · 수신 거부 번호(`unsubscribeNumber`) 중 하나라도 비어 있으면 광고 표기(FR-CMP-04)를 붙일 수 없어 `conflict` 409 "광고 표기에 필요한 매장 전화번호와 수신 거부 번호를 매장 정보에 먼저 등록해 주세요."다 (F47, 동의 재확인 안내는 검사하지 않음). 저장하지 않고 부를 때마다 다시 치환한다. 발송할 때도 다시 치환해 바이트 제한을 다시 검사한다 (F46).
 
@@ -1444,6 +1458,14 @@
 | --- | --- | --- |
 | `revenue` | number | 연결 매출(원): 이 캠페인 발송이 귀속된 방문 시술이 하나라도 있는 방문의 취소되지 않은 결제 합계 (FR-PAY-02). 결제는 시술별로 나눌 수 없어 방문 결제 전액을 세고(A13), 같은 방문에 이 캠페인 귀속 시술이 여럿이어도 한 번만 센다. 다른 캠페인에도 귀속된 방문은 그 캠페인 매출에도 전액 들어간다 (FR-ANL-02). CSV로 가져온 방문은 빠진다 (FR-CUS-13). 결제일 · 방문일로 거르지 않는다 (F33) |
 
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `customerIds` | string | 아니오 | 고객별 연결 매출을 함께 받을 고객 ID, 쉼표로 구분해 100개까지(캠페인 상세의 한 페이지). 형식이 틀리거나 100개를 넘으면 `invalid` 400 (FR-ANL-04) |
+
+| 응답 필드 (`customerIds`를 보냈을 때) | 타입 | 설명 |
+| --- | --- | --- |
+| `customers` | object[] | 보낸 고객마다 `{ "customerId": number, "revenue": number }`, 보낸 순서. 이 캠페인 귀속 방문이 없으면 0, 이 캠페인 대상이 아닌 고객도 0. 규칙은 `revenue`와 같다(취소 결제 · CSV 방문 제외, 방문은 한 번만). 한 고객에 캠페인 메시지는 하나라 고객별 값을 모두 더하면 `revenue`가 된다. 같은 날 다른 예약의 결제도 그 방문 결제라 함께 센다 (A13). 보내지 않으면 이 칸이 없다 |
+
 - 매장 전체 합계에서 한 방문을 한 번만 세는 규칙(FR-ANL-02)은 매장 기본 지표(`GET /api/analytics/summary`, 결제 기준)와 캠페인 성과 합계(`GET /api/analytics/campaigns`의 `total`)가 지킨다. 이 응답은 캠페인 하나의 값이다
 - 삭제된 고객의 결제도 그대로 센다 (C12)
 - 캠페인이 없거나 다른 매장 것이면 `not_found` 404 (NFR-03)
@@ -1594,7 +1616,7 @@
 - `period` · `from` · `to`가 규칙에 맞지 않으면 `invalid` 400 (`GET /api/analytics/summary`와 같음)
 - 다른 매장 예약은 세지 않는다 (NFR-03)
 
-**`GET /api/search/customers`** 상단 검색창의 고객 결과 (FR-SCH-04). `CUSTOMER_VIEW`. 기능 검색 자체는 `DASHBOARD_SEARCH`지만 고객 결과는 "고객 조회" 설정을 따른다 (명세서 2장). "고객 조회"가 PIN으로 잠겨 있으면 `pin_required` 403이고, 화면은 고객 결과를 자물쇠로 표시했다가 PIN 인증 뒤 다시 요청한다 (FR-SCH-05). 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순.
+**`GET /api/search/customers`** 상단 검색창의 고객 결과 (FR-SCH-04). `CUSTOMER_VIEW`. 기능 검색 자체는 `DASHBOARD_SEARCH`지만 고객 결과는 "고객 조회" 설정을 따른다 (명세서 2장). "고객 조회"가 PIN으로 잠겨 있으면 `pin_required` 403이고, 화면은 고객 결과를 자물쇠로 표시했다가 PIN 인증 뒤 다시 요청한다 (FR-SCH-05). 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순. FR-SCH-04 · 05가 범위 제외(F75)라 화면은 이 API를 부르지 않는다. 고객 검색은 `GET /api/customers?q=`(고객 목록)를 쓴다. 이 절은 남아 있는 API의 동작 계약이다.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
@@ -1610,8 +1632,9 @@
 | `phone` | string | 마스킹한 휴대폰 `010-****-1234` (NFR-04, A4). 전체 번호는 `GET /api/customers/{customerId}/contact` |
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
+- 고객 목록과 같이 돌려준 페이지의 고객마다 조회로 접근 로그에 남긴다. 화면이 부르지 않아도 호출할 수 있는 API라 같은 기준이다 (NFR-06, 1장)
 
-**`POST /api/search/misses`** 결과 없는 검색어 저장 (FR-SCH-06, B9, P2). `DASHBOARD_SEARCH`. 기능 결과와 고객 결과가 **둘 다 없을 때만** 남긴다 (F28). 기능 키워드 사전은 프론트 정적 파일이라(FR-SCH-02) 기능 결과가 없을 때만 화면이 부르고, 고객 결과는 서버가 `GET /api/search/customers`와 같은 규칙으로 다시 찾아 하나라도 있으면 저장하지 않는다. 그래서 "고객 조회"가 PIN으로 잠겨 화면이 고객 결과를 모를 때도 그대로 부르면 된다. 저장했든 안 했든 응답은 같다(204, 본문 없음).
+**`POST /api/search/misses`** 결과 없는 검색어 저장 (FR-SCH-06, B9, P2). `DASHBOARD_SEARCH`. 기능 결과와 고객 결과가 **둘 다 없을 때만** 남긴다 (F28). 기능 키워드 사전은 프론트 정적 파일이라(FR-SCH-02) 기능 결과가 없을 때만 화면이 부르고, 고객 결과는 서버가 `GET /api/search/customers`와 같은 규칙으로 다시 찾아 하나라도 있으면 저장하지 않는다. 그래서 "고객 조회"가 PIN으로 잠겨 화면이 고객 결과를 모를 때도 그대로 부르면 된다. 저장했든 안 했든 응답은 같다(204, 본문 없음). FR-SCH-06이 범위 제외(F75)라 화면은 이 API를 부르지 않고, 위 내용은 남아 있는 API의 동작 계약이다.
 
 | 요청 필드 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
