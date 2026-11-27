@@ -660,12 +660,17 @@
 | `services` | object[] | 실제 시술(visit_service, A13), 저장한 순서 |
 | `photos` | object[] | 사진, 올린 순서. 사진 동의(`PHOTO`) 최신 행이 동의가 아니면 빈 배열 |
 | `notes` | object[] | 방문 메모(visit_note, F1), 작성한 순서 |
+| `imported` | boolean | CSV로 가져온 방문이면 true. 방문 수정(`PATCH /api/visits/{visitId}`)은 `conflict` 409라 화면이 수정 버튼을 두지 않는다(F25). 삭제는 되돌릴 예약이 없어 방문만 지운다(F8) (F76) |
 
 | `services` 항목 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `category` | string | 3절 「시술 카테고리」 |
 | `menuName` | string \| null | 시술 메뉴 이름. 가져온 방문은 null이고 화면은 "메뉴 미상"으로 보인다 (A13) |
 | `staff` | object \| null | 담당 스탭 `{ "id", "name" }`. 가져온 방문이면 null |
+| `serviceMenuId` | number \| null | 시술 메뉴 ID. 가져온 방문이면 null. 방문 수정(`PATCH /api/visits/{visitId}`)의 `services`를 채우는 값이다 (F76) |
+| `cycleExcluded` | boolean | 이번 시술 주기 계산 제외 (FR-VIS-05). 방문 수정 화면이 지금 값을 보여 주는 데 쓴다 (F76) |
+
+- `services`는 **방문 전체**의 실제 시술이다(같은 날 여러 예약을 마감해 한 방문이 된 경우 그 예약들의 시술 모두, C6). 방문 수정은 이 목록 전체를 보내야 다른 예약의 시술이 지워지지 않는다 (F76)
 
 | `photos` 항목 필드 | 타입 | 설명 |
 | --- | --- | --- |
@@ -1073,7 +1078,9 @@
 | `services` | object[] | 실제 시술 `{ "serviceMenuId": number, "name": string, "category": string, "price": number, "predictionAttribute": string, "staff": { "id": number, "name": string }, "cycleExcluded": boolean }`. 확정 예약이면 예정 시술을 예약 담당 스탭 · `cycleExcluded: false`로 채우고, 완료 예약이면 이 예약으로 기록된 방문의 실제 시술이다 (A13). `price`는 지금 메뉴 가격(원), `predictionAttribute`는 3절 「메뉴 예측 속성」(`NORMAL` 메뉴에 주기 계산 제외를 체크하면 FR-VIS-05 안내를 띄운다) |
 | `photoAllowed` | boolean | 사진 동의 현재 상태(최신 행). 고객이 없으면 false (FR-CUS-08) |
 | `consentsToRequest` | string[] | 동의 받기 대상. `PHOTO` `MARKETING` `NIGHT_AD` `HEALTH` 중 현재 동의 상태가 아닌 항목(3절 순서). 고객이 없으면 빈 배열 (E3) |
+| `payments` | object[] | **이 예약으로 등록한** 결제 `{ "paymentId": number, "paidAt": string, "amount": number, "method": string, "canceled": boolean }`, 결제 시각순. 확정 예약이면 빈 배열. 같은 방문에 묶인 다른 예약의 결제는 넣지 않는다. 취소된 결제도 `canceled: true`로 남긴다. 고객이 있든 없든 같다. 결제 수정 · 취소(`PATCH /api/payments/{paymentId}` · `POST …/cancel`, `PAYMENT_EDIT`)의 대상이다 (FR-PAY-02 · 04, F76) |
 
+- `payments`는 시술 마감 업무에 필요한 이 예약의 결제만이라 `RESERVATION`으로 준다. 고객 전체 결제 이력(`GET /api/customers/{customerId}/payments`)과 매출 조회는 그대로 `SALES_ANALYTICS`다 (F76, 명세서 2장)
 - 결제 수단은 3절 「결제 수단」 값을 그대로 쓴다 (응답에 넣지 않는다)
 - 취소 · 노쇼 예약이면 `conflict` 409, 다른 매장 · 없는 예약이면 `not_found` 404
 

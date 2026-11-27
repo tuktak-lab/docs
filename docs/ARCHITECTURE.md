@@ -413,7 +413,7 @@ Keepsy main `dcef99c` 기준. 앞의 네 「수용한 한계」 행과 모의 �
 | 메뉴 · 카테고리 주기 변경의 일괄 재계산과 같은 고객의 시술 마감 · 방문 수정이 겹칠 때 | `PredictionAppService.recalculateForMenu` · `recalculateForCategoryDefault` | 수용한 한계 | REPEATABLE READ 스냅샷 때문에 생길 수 있는 잠재적 정합성 문제(예측 갱신 유실, 평가 전 스냅샷 중복). 동시성 재현 테스트는 하지 않았다. 메뉴를 먼저 읽어 스냅샷이 잡히므로 고객 잠금만 더해서는 해결되지 않는다 |
 | 완료 예약의 추가 결제 · 방문 메모에 서버 멱등성 없음 | F69 | 수용한 한계 | 프론트 연속 제출 가드의 범위와 바꾸는 조건은 F69 |
 | 기능 검색 사전이 8개뿐이고 동의어가 없다. 「고객 등록」이 고객 목록으로 가는 식으로 이동 경로도 일부 다르다 | FR-SCH-02, `frontend/public/search-keywords.json` · `src/lib/featureSearch.ts` | 미충족 (P1) | 사전 보강 작업 예정. 기간 인식 · 고객 검색 · 자물쇠 · 미매칭 로그 · 초성(FR-SCH-03~07)은 범위 제외라 여기서 세지 않는다 (F74) |
-| 결제 수정 · 취소, 방문 수정 · 삭제 화면이 없다. 마감 화면의 「방문 수정에서 바꿀 수 있어요」 안내가 가리키는 화면도 없다 | FR-PAY-02 · FR-VIS-03 · FR-VIS-05(방문 수정 쪽), 백엔드 `PATCH`/`POST …/cancel` `/api/payments/{id}` · `PATCH`/`DELETE /api/visits/{id}`는 있음 | 미충족 (P1) | 고객 상세 히스토리에 화면을 더하는 작업 예정 |
+| 결제 수정 · 취소, 방문 수정 · 삭제 화면이 없다. 마감 화면의 「방문 수정에서 바꿀 수 있어요」 안내가 가리키는 화면도 없다 | FR-PAY-02 · FR-VIS-03 · FR-VIS-05(방문 수정 쪽), 백엔드 `PATCH`/`POST …/cancel` `/api/payments/{id}` · `PATCH`/`DELETE /api/visits/{id}`는 있음 | 미충족 (P1) | F76으로 정한 화면 작업 예정: 결제는 고객 상세 결제 이력과 완료 예약의 마감 카드(고객 없는 예약 포함), 방문은 고객 상세 히스토리(방문 전체 시술). 마감 카드 `payments` · 히스토리 필드는 기존 응답에 더하는 것이다 |
 | 고객별 연결 기록: 고객 상세에 결제 이력이 없고(`GET /api/customers/{id}/payments`를 부르지 않음), 캠페인 상세의 고객별 목록에 예약 · 방문 · 결제 연결이 없다 | FR-ANL-04, `CampaignQuery.Message` | 미충족 (P1) | 퍼널 · 연결 매출 집계만으로는 충족으로 보지 않는다. 작업 예정 |
 | 동의서의 보관 기간 문구가 「기본 3년」 고정이라 매장 설정(1~5년)을 바꿔도 안 바뀐다 | FR-SET-06, `frontend/src/lib/consents.ts` | 미충족 (P1) | `GET /api/shop`의 `retentionYears`로 바꾸는 작업 예정 |
 | 관리자 화면 언어 전환이 없다 | FR-I18N-02, F75 | 미충족 (P2) | 방식은 i18next + react-i18next로 정했고(2장), 프론트 담당 조원과 별도 이슈 · PR로 구현한다 |
