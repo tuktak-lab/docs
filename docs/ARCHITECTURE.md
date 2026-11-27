@@ -123,6 +123,10 @@ compose.yaml    로컬 MySQL 8.4: 개발 mysql(3306) · 테스트 mysql-test(330
 frontend/
   src/app/                 화면 경로별 page.tsx (아래 표)
   src/app/(shop)/layout.tsx  매장 화면 공통 셸(사이드바 · 상단바). 그룹 이름은 URL에 들어가지 않음 (Keepsy #393)
+  src/app/not-found.tsx    없는 주소 화면 (정적 빌드에서 404.html, Keepsy #406)
+  src/app/(shop)/error.tsx   매장 화면 본문 오류. 셸(사이드바 · 상단바)은 남기고 본문만 바꾼다 (Keepsy #407)
+  src/app/error.tsx        셸 밖 화면(소개 · 로그인 · 가입 등) 오류 (Keepsy #407)
+  src/app/global-error.tsx  루트 layout까지 실패했을 때. `<html>` · `<body>`를 직접 그린다 (Keepsy #407)
   src/components/          공용 UI: 레이아웃, PIN 입력 창, 표, 페이지 이동
   src/features/<영역>/      영역별 화면 조각과 API 호출 (대체로 백엔드 패키지 이름, 랜딩은 landing)
   src/hooks/useLoad.ts     「처음 불러오기 + 다시 불러오기」, 마지막 요청의 응답만 반영 (src/lib/latest.ts, Keepsy #344)
