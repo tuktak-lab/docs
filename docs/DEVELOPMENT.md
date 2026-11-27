@@ -243,6 +243,7 @@ docker exec keepsy-mysql-demo rm /tmp/keepsy-demo-team.sql
 | campaign | 73 | photo | 0 |
 
 - `flyway_schema_history`는 12행, 모두 `success=1`, 마지막 version 12. `version`은 문자열이라 `MAX(version)` 대신 `installed_rank`로 정렬해 본다.
+- 덤프는 V12 기준이다. 최신 백엔드(V13 이후)를 이 DB로 실행하면 Flyway가 그 뒤 migration을 적용한다. V13(`shop.industries`) 뒤에는 `flyway_schema_history`가 13행이고, 데모 매장의 `industries`는 5개 모두다 (F72). 덤프 복사본(별도 DB)에서 확인했다 (2026-11-27). 위 건수 표는 V12 복원 직후 값이다.
 - photo 0은 정상이다. 시드 생성기는 사진 행을 만들지 않는다(`PHOTO`는 동의 항목 이름으로만 나온다).
 - `access_log`는 덤프에 39행이 들어 있고, 백엔드로 화면 · API를 쓰면 늘어난다. 처음 상태가 필요하면 백엔드를 멈추고 `keepsy_demo`만 지운 뒤(`DROP DATABASE` → `CREATE DATABASE … utf8mb4_0900_ai_ci` → `GRANT ALL ON keepsy_demo.* TO 'keepsy_demo'@'%'`) 다시 복원한다. 볼륨을 지우는 `docker compose down -v`는 쓰지 않는다.
 
