@@ -414,7 +414,7 @@ Keepsy main `dcef99c` 기준. 앞의 네 「수용한 한계」 행과 모의 �
 | 완료 예약의 추가 결제 · 방문 메모에 서버 멱등성 없음 | F69 | 수용한 한계 | 프론트 연속 제출 가드의 범위와 바꾸는 조건은 F69 |
 | 기능 검색 사전이 8개뿐이고 동의어가 없다. 「고객 등록」이 고객 목록으로 가는 식으로 이동 경로도 일부 다르다 | FR-SCH-02, `frontend/public/search-keywords.json` · `src/lib/featureSearch.ts` | 미충족 (P1) | 사전 보강 작업 예정. 기간 인식 · 고객 검색 · 자물쇠 · 미매칭 로그 · 초성(FR-SCH-03~07)은 범위 제외라 여기서 세지 않는다 (F75) |
 | 결제 수정 · 취소, 방문 수정 · 삭제 화면이 없다. 마감 화면의 「방문 수정에서 바꿀 수 있어요」 안내가 가리키는 화면도 없다 | FR-PAY-02 · FR-VIS-03 · FR-VIS-05(방문 수정 쪽), 백엔드 `PATCH`/`POST …/cancel` `/api/payments/{id}` · `PATCH`/`DELETE /api/visits/{id}`는 있음 | 미충족 (P1) | F77으로 정한 화면 작업 예정: 결제는 고객 상세 결제 이력과 완료 예약의 마감 카드(고객 없는 예약 포함), 방문은 고객 상세 히스토리(방문 전체 시술). 마감 카드 `payments` · 히스토리 필드는 기존 응답에 더하는 것이다 |
-| 고객별 연결 기록: 고객 상세에 결제 이력이 없고(`GET /api/customers/{id}/payments`를 부르지 않음), 캠페인 상세의 고객별 목록에 예약 · 방문 · 결제 연결이 없다 | FR-ANL-04, `CampaignQuery.Message` | 미충족 (P1) | 퍼널 · 연결 매출 집계만으로는 충족으로 보지 않는다. 작업 예정 |
+| 고객별 연결 기록: 고객 상세에 결제 이력이 없고(`GET /api/customers/{id}/payments`를 부르지 않음), 캠페인 상세의 고객별 목록에 예약 · 방문 · 결제 연결이 없다 | FR-ANL-04, `CampaignQuery.Message` | 미충족 (P1) | 퍼널 · 연결 매출 집계만으로는 충족으로 보지 않는다. 캠페인 상세 `messages`에 귀속 예약 · 방문(`CAMPAIGN_VIEW`), `/revenue?customerIds=`에 고객별 연결 매출(`SALES_ANALYTICS`)을 더하는 작업 예정 (CONTRACTS 6장) |
 | 동의서의 보관 기간 문구가 「기본 3년」 고정이라 매장 설정(1~5년)을 바꿔도 안 바뀐다 | FR-SET-06, `frontend/src/lib/consents.ts` | 미충족 (P1) | `GET /api/shop`의 `retentionYears`로 바꾸는 작업 예정 |
 | 관리자 화면 언어 전환이 아직 끝나지 않았다 | FR-I18N-02, F74 · F76 | 미충족 (P2) | 기반 구현 Keepsy #451, 화면 문구 이전은 기능 폴더별로 진행 중 (4장 「화면 문구 · 언어」, F74 ④) |
 | 고객 기본 정보(이름 · 번호 · 성별 · 출생 연도 · 유입 경로) 수정 화면이 없다 | 명세서 2장 「고객 기본 정보 수정」, `PATCH /api/customers/{customerId}`는 있음, F76 | 미충족 | API가 전체 번호까지 통째로 받아서, 상세 화면(마스킹된 번호)에서 고치려면 전체 번호를 다시 받거나 `CONTACT_FULL` 조회가 필요하다. 권한 설계가 먼저다 |

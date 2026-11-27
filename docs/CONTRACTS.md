@@ -1282,6 +1282,12 @@
 | `sendStatus` | string \| null | 3절 「발송 상태」. 대조군 행이면 null |
 | `failureReason` | string \| null | 실패 사유 (FR-CMP-10) |
 | `resultAt` | string \| null | 발송 결과 시각 |
+| `messageId` | number \| null | 발송 기록 ID (귀속 발송 ID, F15). 대조군 행이면 null |
+| `reservations` | object[] | 이 발송이 귀속된 예약 `{ "id": number, "startAt": string, "status": string }`, 시작 시각 순 (FR-ANL-04). 규칙은 `GET /api/customers/{customerId}/messages`의 `reservations`와 같다. 발송 성공한 광고 메시지가 아니면(대조군 · 실패 · 대기) 빈 배열 |
+| `visits` | object[] | 이 발송이 귀속된 방문 `{ "id": number, "visitDate": string }`, 방문일 순 (FR-ANL-04). 규칙은 위와 같다 |
+
+- 고객별 연결 기록(`reservations` · `visits`)은 고객 상세 수신 이력과 같은 귀속 판정이고 재예약 여부로 좁히지 않는다. 그래서 행을 세어도 퍼널의 `revisitedCount`(재예약 ∩ 귀속 방문, F35)와 다를 수 있다. 페이지의 발송 ID로 한 번에 읽는다 (NFR-01)
+- 결제 금액은 넣지 않는다. 고객별 연결 매출은 `GET /api/campaigns/{campaignId}/revenue?customerIds=`(`SALES_ANALYTICS`)로 따로 받는다 (명세서 2장)
 
 **`GET /api/campaigns/{campaignId}/preview`** 캠페인 미리보기 (FR-CMP-05 · 18, B3, 결정 F46 · F47). `CAMPAIGN_SEND`. 다른 매장 · 없는 캠페인이면 `not_found` 404. 광고 캠페인인데 매장 정보의 전화번호(`phone`) · 수신 거부 번호(`unsubscribeNumber`) 중 하나라도 비어 있으면 광고 표기(FR-CMP-04)를 붙일 수 없어 `conflict` 409 "광고 표기에 필요한 매장 전화번호와 수신 거부 번호를 매장 정보에 먼저 등록해 주세요."다 (F47, 동의 재확인 안내는 검사하지 않음). 저장하지 않고 부를 때마다 다시 치환한다. 발송할 때도 다시 치환해 바이트 제한을 다시 검사한다 (F46).
 
@@ -1451,6 +1457,14 @@
 | 응답 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `revenue` | number | 연결 매출(원): 이 캠페인 발송이 귀속된 방문 시술이 하나라도 있는 방문의 취소되지 않은 결제 합계 (FR-PAY-02). 결제는 시술별로 나눌 수 없어 방문 결제 전액을 세고(A13), 같은 방문에 이 캠페인 귀속 시술이 여럿이어도 한 번만 센다. 다른 캠페인에도 귀속된 방문은 그 캠페인 매출에도 전액 들어간다 (FR-ANL-02). CSV로 가져온 방문은 빠진다 (FR-CUS-13). 결제일 · 방문일로 거르지 않는다 (F33) |
+
+| 쿼리 | 타입 | 필수 | 규칙 |
+| --- | --- | --- | --- |
+| `customerIds` | string | 아니오 | 고객별 연결 매출을 함께 받을 고객 ID, 쉼표로 구분해 100개까지(캠페인 상세의 한 페이지). 형식이 틀리거나 100개를 넘으면 `invalid` 400 (FR-ANL-04) |
+
+| 응답 필드 (`customerIds`를 보냈을 때) | 타입 | 설명 |
+| --- | --- | --- |
+| `customers` | object[] | 보낸 고객마다 `{ "customerId": number, "revenue": number }`, 보낸 순서. 이 캠페인 귀속 방문이 없으면 0, 이 캠페인 대상이 아닌 고객도 0. 규칙은 `revenue`와 같다(취소 결제 · CSV 방문 제외, 방문은 한 번만). 한 고객에 캠페인 메시지는 하나라 고객별 값을 모두 더하면 `revenue`가 된다. 같은 날 다른 예약의 결제도 그 방문 결제라 함께 센다 (A13). 보내지 않으면 이 칸이 없다 |
 
 - 매장 전체 합계에서 한 방문을 한 번만 세는 규칙(FR-ANL-02)은 매장 기본 지표(`GET /api/analytics/summary`, 결제 기준)와 캠페인 성과 합계(`GET /api/analytics/campaigns`의 `total`)가 지킨다. 이 응답은 캠페인 하나의 값이다
 - 삭제된 고객의 결제도 그대로 센다 (C12)
