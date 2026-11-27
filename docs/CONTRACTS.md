@@ -253,8 +253,8 @@
 | `GET /api/dashboard/care-targets` | 오늘 관리할 고객 상위 10행 (관리 종료 `CLOSED` 행은 빼고 고름, F55) | `INSIGHT` | FR-DSH-02 |
 | `GET /api/dashboard/recent-campaigns` | 최근 3개 캠페인 재예약 전환율 (P2) | `CAMPAIGN_VIEW` | FR-DSH-04 |
 | `GET /api/dashboard/booking-channels?period=` | 예약 경로 비율 (P2) | `DASHBOARD_SEARCH` | FR-DSH-06 |
-| `GET /api/search/customers?q=` | 상단 검색창의 고객 결과 | `CUSTOMER_VIEW` | FR-SCH-04 |
-| `POST /api/search/misses` | 결과 없는 검색어 저장 (P2) | `DASHBOARD_SEARCH` | FR-SCH-06 |
+| `GET /api/search/customers?q=` | 상단 검색창의 고객 결과. 구현돼 있으나 화면은 부르지 않음 (범위 제외, F74) | `CUSTOMER_VIEW` | FR-SCH-04 |
+| `POST /api/search/misses` | 결과 없는 검색어 저장 (P2). 구현돼 있으나 화면은 부르지 않음 (범위 제외, F74) | `DASHBOARD_SEARCH` | FR-SCH-06 |
 
 기능 키워드 사전은 정적 파일이라 API가 없다 (FR-SCH-02, `docs/ARCHITECTURE.md` 「4」).
 
@@ -1594,7 +1594,7 @@
 - `period` · `from` · `to`가 규칙에 맞지 않으면 `invalid` 400 (`GET /api/analytics/summary`와 같음)
 - 다른 매장 예약은 세지 않는다 (NFR-03)
 
-**`GET /api/search/customers`** 상단 검색창의 고객 결과 (FR-SCH-04). `CUSTOMER_VIEW`. 기능 검색 자체는 `DASHBOARD_SEARCH`지만 고객 결과는 "고객 조회" 설정을 따른다 (명세서 2장). "고객 조회"가 PIN으로 잠겨 있으면 `pin_required` 403이고, 화면은 고객 결과를 자물쇠로 표시했다가 PIN 인증 뒤 다시 요청한다 (FR-SCH-05). 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순.
+**`GET /api/search/customers`** 상단 검색창의 고객 결과 (FR-SCH-04). `CUSTOMER_VIEW`. 기능 검색 자체는 `DASHBOARD_SEARCH`지만 고객 결과는 "고객 조회" 설정을 따른다 (명세서 2장). "고객 조회"가 PIN으로 잠겨 있으면 `pin_required` 403이고, 화면은 고객 결과를 자물쇠로 표시했다가 PIN 인증 뒤 다시 요청한다 (FR-SCH-05). 삭제된 고객은 나오지 않는다 (FR-CUS-10). 정렬은 최근 등록순. FR-SCH-04 · 05가 범위 제외(F74)라 화면은 이 API를 부르지 않는다. 고객 검색은 `GET /api/customers?q=`(고객 목록)를 쓴다. 이 절은 남아 있는 API의 동작 계약이다.
 
 | 쿼리 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
@@ -1611,7 +1611,7 @@
 
 - 쿼리 값이 규칙에 맞지 않으면 `invalid` 400
 
-**`POST /api/search/misses`** 결과 없는 검색어 저장 (FR-SCH-06, B9, P2). `DASHBOARD_SEARCH`. 기능 결과와 고객 결과가 **둘 다 없을 때만** 남긴다 (F28). 기능 키워드 사전은 프론트 정적 파일이라(FR-SCH-02) 기능 결과가 없을 때만 화면이 부르고, 고객 결과는 서버가 `GET /api/search/customers`와 같은 규칙으로 다시 찾아 하나라도 있으면 저장하지 않는다. 그래서 "고객 조회"가 PIN으로 잠겨 화면이 고객 결과를 모를 때도 그대로 부르면 된다. 저장했든 안 했든 응답은 같다(204, 본문 없음).
+**`POST /api/search/misses`** 결과 없는 검색어 저장 (FR-SCH-06, B9, P2). `DASHBOARD_SEARCH`. 기능 결과와 고객 결과가 **둘 다 없을 때만** 남긴다 (F28). 기능 키워드 사전은 프론트 정적 파일이라(FR-SCH-02) 기능 결과가 없을 때만 화면이 부르고, 고객 결과는 서버가 `GET /api/search/customers`와 같은 규칙으로 다시 찾아 하나라도 있으면 저장하지 않는다. 그래서 "고객 조회"가 PIN으로 잠겨 화면이 고객 결과를 모를 때도 그대로 부르면 된다. 저장했든 안 했든 응답은 같다(204, 본문 없음). FR-SCH-06이 범위 제외(F74)라 화면은 이 API를 부르지 않고, 위 내용은 남아 있는 API의 동작 계약이다.
 
 | 요청 필드 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
