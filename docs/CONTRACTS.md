@@ -96,7 +96,7 @@
 | 예약 경로 | `NAVER` `KAKAO` `PHONE` `STORE` `ETC` | 제안 (E3) |
 | 유입 경로 | `INSTAGRAM` `NAVER_SEARCH` `REFERRAL` `PASSING_BY` `ETC` | 제안 (FR-CUS-01) |
 | 성별 | `FEMALE` `MALE` `OTHER` | 제안 (FR-CUS-01) |
-| 선호 언어 | `KO` `EN` `ZH` `JA` `ETC` | 제안 (FR-I18N-01) |
+| 선호 언어 | `KO` `EN` `ZH` `JA` `ETC` | 제안 (FR-I18N-01, F75로 범위 제외. API는 계속 받고 돌려준다) |
 | 결제 수단 | `CARD` `CASH` `TRANSFER` `ETC` | 제안 (C9) |
 | 방문 출처 | `NORMAL` `IMPORT` | 제안 |
 | 고객 상태 | `ACTIVE` `DELETED` | 제안 (C12) |
@@ -496,7 +496,7 @@
 | `consentMethod` | string | 예 | `TABLET` · `PAPER` · `VERBAL`. 등록 때 받은 동의 모두에 쓴다 (`IMPORT`는 CSV 전용) |
 | `gender` | string | 아니오 | 3절 「성별」 |
 | `birthYear` | number | 아니오 | 1900 ~ 올해 |
-| `preferredLanguage` | string | 아니오 | 3절 「선호 언어」 |
+| `preferredLanguage` | string | 아니오 | 3절 「선호 언어」. 화면은 보내지 않는다 (FR-I18N-01 범위 제외, F75). 보내면 지금처럼 저장한다 |
 | `acquisitionChannel` | string | 아니오 | 3절 「유입 경로」 |
 
 | 응답 필드 | 타입 | 설명 |
